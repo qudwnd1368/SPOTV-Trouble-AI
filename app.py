@@ -200,34 +200,94 @@ elif page == "ìƒˆ ì¥ì•  ë“±ë¡":
                 try:
                     embedding = create_embedding(" ".join([data["equipment"], data["symptom"], data["cause"], data["action"], data["notes"]]))
                     db.add_incident(data, embedding)
-                    st.success("ì¥ì• ì´õß~·¶‰Ëkºwµç]WÙ[X™Y[™Ê^
-N‚ˆÛY[HÙ]ÛÜ[˜ZWØÛY[
+                    st.success("ì¥ì• ì´ë ¥ì´ ì •ìƒì ìœ¼ë¡œ ë“±ë¡ë˜ì—ˆìŠµë‹ˆë‹¤.")
+                except (sqlite3.IntegrityError, ValueError) as exc: st.error(str(exc) or "ì´ë¯¸ ì‚¬ìš© ì¤‘ì¸ ì‚¬ê³ ë²ˆí˜¸ì…ë‹ˆë‹¤.")
 
-BˆYˆ›İÛY[‚ˆ™]\›ˆ›Û™BˆN‚ˆ™\ÜÛœÙHHÛY[™[X™Y[™ÜË˜Ü™X]J[Ù[[ÜË™Ù][Š“ÔSRWÑSP‘QS‘×ÓSÑS‹^Y[X™Y[™ËLË\ÛX[ŠK[œ]]^
-Bˆ™]\›ˆœÛÛ‹™[\Ê™\ÜÛœÙK™]VÌK™[X™Y[™ÊBˆ^Ù\^Ù\[Û‚ˆ™]\›ˆ›Û™B‚‚™YˆÙ[X[X×ÜÙX\˜Ú
-]Y\K[˜ÚY[Ë[Z]LÊN‚ˆÛY[HÙ]ÛÜ[˜ZWØÛY[
+elif page == "ë§¤ë‰´ì–¼ ê´€ë¦¬":
+    st.title("ì¥ë¹„ ë§¤ë‰´ì–¼ ê´€ë¦¬")
+    st.caption("ê³µìœ  Google Drive í´ë” ë˜ëŠ” ì§ì ‘ ì—…ë¡œë“œí•œ PDFë¥¼ í˜ì´ì§€ë³„ë¡œ ìƒ‰ì¸í•©ë‹ˆë‹¤. ìƒ‰ì¸ í›„ì—ëŠ” ì›ë³¸ê³¼ ë³„ë„ë¡œ ê²€ìƒ‰ ë°ì´í„°ê°€ ìœ ì§€ë©ë‹ˆë‹¤.")
+    manual_total, manual_pages, manual_chunks = db.manual_stats()
+    cols = st.columns(3)
+    for col, label, value in zip(cols, ["ìƒ‰ì¸ ë§¤ë‰´ì–¼", "ì „ì²´ í˜ì´ì§€", "ê²€ìƒ‰ ì¡°ê°"], [manual_total, manual_pages, manual_chunks]):
+        col.metric(label, value)
 
-BˆYˆÛY[[™[
-K™[X™Y[™È›ÜˆH[ˆ[˜ÚY[ÊN‚ˆN‚ˆHHÛY[™[X™Y[™ÜË˜Ü™X]J[Ù[[ÜË™Ù][Š“ÔSRWÑSP‘QS‘×ÓSÑS‹^Y[X™Y[™ËLË\ÛX[ŠK[œ]\]Y\JK™]VÌK™[X™Y[™ÂˆYˆ[œÙWØÛÜÊ˜]ÊN‚ˆˆHœÛÛ‹›ØYÊ˜]ÊBˆ™]\›ˆİ[J
-H›ÜˆH[ˆš\
-KŠJHÈ
-X]œÜ\
-İ[J
-›Üˆ[ˆJJJ›X]œÜ\
-İ[JJH›ÜˆH[ˆŠJJBˆ™]\›ˆÛÜY
-Ê[œÙWØÛÜÊK™[X™Y[™ÊKJH›ÜˆH[ˆ[˜ÚY[×KÙ^O[[X™HˆÌK™]™\œÙOUYJVÎ›[Z]Bˆ^Ù\^Ù\[Û‚ˆ\ÜÂˆ™]\›ˆØØ[ÜÙX\˜Ú
-]Y\K[˜ÚY[Ë[Z]
-B‚‚™YˆX[X[ÜÙX\˜Ú
-]Y\KÚ[šÜË[Z]MJN‚ˆˆˆ”ÙX\˜Ú[™^YX[X[\ÜØYÙ\ÈÚ]İ]HZY™XİÜˆ]X˜\ÙKˆˆˆ‚ˆHHØØ[İ™XİÜŠ]Y\JBˆ]Y\Wİ\›\ÈHÂˆ\›H›Üˆ\›H[ˆ™K™š[™[
-ˆ–ÌNXK^KVº¬ {g¨ÊËWJÈ‹]Y\K›İÙ\Š
-JHYˆ[Š\›JHˆBˆBˆØÛÜ™YH×Bˆ›ÜˆÚ[šÈ[ˆÚ[šÜÎ‚ˆ^\İXÚÈHˆØÚ[šË™Ù]
-	İ]IË	ÉÊ_HØÚ[šË™Ù]
-	ØÛÛ[	Ë	ÉÊ_H‚ˆØÛÜ™HHÛÜÚ[™JKØØ[İ™XİÜŠ^\İXÚÊJBˆ›Ü›X[^™YÚ^\İXÚÈH^\İXÚË›İÙ\Š
-Bˆ^XİÚ]ÈHİ[JH›Üˆ\›H[ˆ]Y\Wİ\›\ÈYˆ\›H[ˆ›Ü›X[^™YÚ^\İXÚÊBˆØÛÜ™H
-ÏHZ[ŠŒÍK^XİÚ]È
-ˆŒÊBˆYˆØÛÜ™Hˆ‚ˆØÛÜ™Y˜\[™
+    st.subheader("Google Drive ê³µìœ  í´ë”")
+    sources, source_mode = list_drive_manuals()
+    st.caption(f"{source_mode} Â· PDF {len(sources)}ê°œ í™•ì¸")
+    with st.expander("í™•ì¸ëœ íŒŒì¼ ëª©ë¡"):
+        for source in sources:
+            st.write(f"â€¢ {source['name']}")
+    force_sync = st.checkbox("ì´ë¯¸ ìƒ‰ì¸ëœ íŒŒì¼ë„ ë‹¤ì‹œ ìƒ‰ì¸", value=False)
+    if st.button("Drive í´ë” ìƒ‰ì¸ ë™ê¸°í™”", type="primary"):
+        existing = {item.get("drive_file_id") for item in db.list_manuals()}
+        progress = st.progress(0, text="ë§¤ë‰´ì–¼ ë™ê¸°í™”ë¥¼ ì‹œì‘í•©ë‹ˆë‹¤.")
+        successes, skipped, failures = [], [], []
+        for index, source in enumerate(sources, 1):
+            progress.progress((index - 1) / max(1, len(sources)), text=f"{source['name']} ë‚´ë ¤ë°›ëŠ” ì¤‘")
+            if source["id"] in existing and not force_sync:
+                skipped.append(source["name"])
+                continue
+            try:
+                pdf_bytes = download_drive_pdf(source["id"])
+                metadata = index_pdf_bytes(pdf_bytes, source["name"], db, source["id"], source["url"])
+                successes.append(f"{metadata['title']} ({metadata['page_count']}í˜ì´ì§€)")
+            except Exception as exc:
+                failures.append(f"{source['name']}: {exc}")
+        progress.progress(1.0, text="ë™ê¸°í™”ê°€ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤.")
+        if successes:
+            st.success("ìƒ‰ì¸ ì™„ë£Œ: " + ", ".join(successes))
+        if skipped:
+            st.info(f"ê¸°ì¡´ ìƒ‰ì¸ {len(skipped)}ê°œëŠ” ê±´ë„ˆë›°ì—ˆìŠµë‹ˆë‹¤.")
+        if failures:
+            st.error("\n".join(failures))
+        if successes:
+            st.rerun()
 
-ØÛÜ™KÚ[šÊJBˆ™]\›ˆÛÜY
-ØÛÜ™YÙ^O[[X™H][Nˆ][VÌK™]™\œÙOUYJVÎ›[Z]B‚‚™Yˆ™[]˜[˜ÙWÛX™[
-ØÛÜ™K˜[šÊN‚ˆYˆ˜[šÈOH[™ØÛÜ™HHŒÌˆ™]\›ˆºéé;&¬:­ :è*:á¤»'c‚ˆYˆØÛÜ™HHŒMˆ™]\›ˆº­ :è*:á¤»'c‚ˆ™]\›ˆ»,.:¬è:¬ :â©H‚‚‚™Yˆ\×Ø[XšYİ[İ\Ê]Y\JN‚ˆ™]\›ˆ[Š›Ü›X[^™J]Y\JJHHˆÜˆ›İ[JÛÜ™[ˆ]Y\K›İÙ\Š
-H›ÜˆÛÜ™[ˆÈ»'¡zè)H‹»-§:è)H‹ºì¡;b¯‹»&):å%;&)‹»!£:é«‹»c¦;'m:ãe‹»fe:êm‹»"è;f.‹»'«; çH‹ºán{fe‹ºîj:¬!—JB
+    st.subheader("PDF ì§ì ‘ ë“±ë¡")
+    uploads = st.file_uploader("ì¥ë¹„ ë§¤ë‰´ì–¼ PDF", type=["pdf"], accept_multiple_files=True)
+    if uploads and st.button("ì—…ë¡œë“œí•œ PDF ìƒ‰ì¸"):
+        completed, failures = [], []
+        for uploaded in uploads:
+            try:
+                metadata = index_pdf_bytes(uploaded.getvalue(), uploaded.name, db)
+                completed.append(f"{metadata['title']} ({metadata['page_count']}í˜ì´ì§€)")
+            except Exception as exc:
+                failures.append(f"{uploaded.name}: {exc}")
+        if completed:
+            st.success("ìƒ‰ì¸ ì™„ë£Œ: " + ", ".join(completed))
+        if failures:
+            st.error("\n".join(failures))
+        if completed:
+            st.rerun()
+
+    st.subheader("ìƒ‰ì¸ëœ ë§¤ë‰´ì–¼")
+    manuals = db.list_manuals()
+    if not manuals:
+        st.info("ì•„ì§ ìƒ‰ì¸ëœ ë§¤ë‰´ì–¼ì´ ì—†ìŠµë‹ˆë‹¤.")
+    for manual in manuals:
+        left, right = st.columns([5, 1])
+        with left:
+            title = manual.get("title", "")
+            pages = manual.get("page_count", 0)
+            chunks = manual.get("chunk_count", 0)
+            st.write(f"**{title}** Â· {pages}í˜ì´ì§€ Â· ê²€ìƒ‰ ì¡°ê° {chunks}ê°œ")
+            if manual.get("drive_url"):
+                st.caption(manual["drive_url"])
+        with right:
+            if st.button("ìƒ‰ì¸ ì‚­ì œ", key=f"delete_manual_{manual.get('id')}"):
+                db.delete_manual(manual.get("id"))
+                st.rerun()
+
+else:
+    st.title("ì‹œìŠ¤í…œ ì •ë³´")
+    st.markdown("""**ê²€ìƒ‰ ëª¨ë“œ**  
+OpenAI API í‚¤ì™€ ì„ë² ë”©ì´ ìˆìœ¼ë©´ OpenAI ì˜ë¯¸ ê²€ìƒ‰ì„ ì‚¬ìš©í•˜ë©°, ê·¸ë ‡ì§€ ì•Šìœ¼ë©´ ê°œì¸ì •ë³´ë¥¼ ì™¸ë¶€ë¡œ ë³´ë‚´ì§€ ì•ŠëŠ” ë¡œì»¬ ìœ ì‚¬ë„ ê²€ìƒ‰ìœ¼ë¡œ ìë™ ì „í™˜í•©ë‹ˆë‹¤.
+
+**ë°ì´í„° ì €ì¥**  
+Cloud Runì—ì„œëŠ” ì¥ì• ì´ë ¥ê³¼ ë§¤ë‰´ì–¼ ìƒ‰ì¸ì´ Firestoreì— ì €ì¥ë©ë‹ˆë‹¤. ë¡œì»¬ ì‹¤í–‰ ì‹œì—ëŠ” `spotv_trouble.db`ë¥¼ ì‚¬ìš©í•©ë‹ˆë‹¤.
+
+**ë§¤ë‰´ì–¼ ê²€ìƒ‰**  
+PDFì—ì„œ í˜ì´ì§€ë³„ í…ìŠ¤íŠ¸ë¥¼ ì¶”ì¶œí•˜ì—¬ ë¬´ë£Œ ë¡œì»¬ ìœ ì‚¬ë„ ê²€ìƒ‰ìœ¼ë¡œ ì¡°íšŒí•©ë‹ˆë‹¤. ê²€ìƒ‰ ê²°ê³¼ì—ëŠ” ë§¤ë‰´ì–¼ëª…ê³¼ ì›ë¬¸ í˜ì´ì§€ê°€ í‘œì‹œë©ë‹ˆë‹¤.
+
+**ë³´ì•ˆ**  
+API í‚¤ëŠ” `.env`ì—ì„œë§Œ ì½ìœ¼ë©° ì½”ë“œì™€ DBì—ëŠ” ì €ì¥í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.""")
