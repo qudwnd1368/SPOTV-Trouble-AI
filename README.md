@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 4 seconds
-Output:
 # SPOTV Trouble AI
 
 장애이력과 장비 매뉴얼을 함께 검색하는 방송 기술 장애 대응 시스템입니다. 관리자 메뉴에서 Google Drive 공유 폴더 또는 직접 업로드한 PDF를 페이지별로 색인하며, 검색 결과에 매뉴얼명·페이지·원문 링크를 표시합니다.
@@ -119,4 +116,3 @@ gcloud auth application-default login
 ```
 
 동일한 사고번호가 이미 있으면 업데이트하고, 없으면 새로 등록합니다.
-

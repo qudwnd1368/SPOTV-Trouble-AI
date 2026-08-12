@@ -1,0 +1,11 @@
+.git
+.venv
+.runtime
+__pycache__
+.pytest_cache
+.env
+.streamlit/secrets.toml
+spotv_trouble.db
+oauth_client*.json
+*.zip
+
