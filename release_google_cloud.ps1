@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)] [string] $ProjectId,
     [Parameter(Mandatory = $true)] [string] $OAuthClientId,
     [Parameter(Mandatory = $true)] [string] $AllowedEmails,
+    [Parameter(Mandatory = $true)] [string] $ManualDriveFolderId,
     [string] $Region = "asia-northeast3",
     [string] $ServiceName = "spotv-trouble-ai"
 )
@@ -57,7 +58,7 @@ gcloud run deploy $ServiceName `
     --cpu 1 `
     --min 0 `
     --max 2 `
-    --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=true,APP_URL=$serviceUrl,OAUTH_CLIENT_ID=$OAuthClientId,ALLOWED_EMAILS=$AllowedEmails,MANUAL_DRIVE_FOLDER_ID=1MeuXfTD9pPcjrmV-50jVc0wJJqMnZgIz,MAX_MANUAL_PDF_MB=30" `
+    --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=true,APP_URL=$serviceUrl,OAUTH_CLIENT_ID=$OAuthClientId,ALLOWED_EMAILS=$AllowedEmails,MANUAL_DRIVE_FOLDER_ID=$ManualDriveFolderId,MAX_MANUAL_PDF_MB=30" `
     --set-secrets "OAUTH_CLIENT_SECRET=spotv-oauth-client-secret:latest,COOKIE_SECRET=spotv-cookie-secret:latest,ADMIN_PASSWORD=spotv-admin-password:latest"
 
 Write-Host "SPOTV Trouble AI is live: $serviceUrl" -ForegroundColor Green

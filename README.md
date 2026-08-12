@@ -75,7 +75,7 @@ Copy-Item .env.example .env
 
 Cloud Run의 로컬 디스크는 영구 저장소가 아니므로 `DATABASE_BACKEND=firestore`일 때 `storage.py`가 Firestore 구현으로 자동 전환됩니다. 로컬 실행은 계속 SQLite를 사용합니다.
 
-관리자 로그인 후 **매뉴얼 관리 → Drive 폴더 색인 동기화**를 누르면 공유 폴더의 PDF가 색인됩니다. 기본 폴더 ID는 `1MeuXfTD9pPcjrmV-50jVc0wJJqMnZgIz`이며 `MANUAL_DRIVE_FOLDER_ID` 환경변수로 변경할 수 있습니다. 원본 PDF를 나중에 삭제해도 Firestore 색인은 별도로 삭제하기 전까지 유지됩니다.
+관리자 로그인 후 **매뉴얼 관리 → Drive 폴더 색인 동기화**를 누르면 공유 폴더의 PDF가 색인됩니다. `MANUAL_DRIVE_FOLDER_ID` 환경변수에 공유 폴더 ID를 설정해야 합니다. 폴더 ID와 원본 파일은 공개 저장소에 커밋하지 마세요. 원본 PDF를 나중에 삭제해도 Firestore 색인은 별도로 삭제하기 전까지 유지됩니다.
 
 ### 1단계: 비공개 초기 배포
 
@@ -103,7 +103,8 @@ OAuth Client ID와 허용할 팀원 이메일을 입력합니다. Client Secret�
 powershell -ExecutionPolicy Bypass -File .\release_google_cloud.ps1 `
   -ProjectId "내-프로젝트-ID" `
   -OAuthClientId "클라이언트-ID.apps.googleusercontent.com" `
-  -AllowedEmails "user1@company.com,user2@company.com"
+  -AllowedEmails "user1@company.com,user2@company.com" `
+  -ManualDriveFolderId "공유-드라이브-폴더-ID"
 ```
 
 ### 기존 로컬 장애이력 이전

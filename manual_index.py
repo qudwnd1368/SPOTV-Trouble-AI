@@ -13,30 +13,17 @@ from datetime import datetime, timezone
 from pypdf import PdfReader
 
 
-DRIVE_FOLDER_ID = os.getenv("MANUAL_DRIVE_FOLDER_ID", "1MeuXfTD9pPcjrmV-50jVc0wJJqMnZgIz")
+DRIVE_FOLDER_ID = os.getenv("MANUAL_DRIVE_FOLDER_ID", "").strip()
 MAX_PDF_BYTES = int(os.getenv("MAX_MANUAL_PDF_MB", "30")) * 1024 * 1024
-
-# The current shared folder contents are kept as a safe fallback.  Cloud Run
-# also tries the Drive API so newly added files appear without a code change.
-DEFAULT_DRIVE_MANUALS = [
-    {"id": "1YvcshZECUIc4k8OcvzrM118KyGjldIoc", "name": "EVS XTnano 테크니컬 매뉴얼.pdf"},
-    {"id": "1BuaRGTv9niCYAg5FdQQVlbtStV8Vyohs", "name": "EVS XTnano 레퍼런스 매뉴얼.pdf"},
-    {"id": "1z2OxZ2t16UxuivBicGyFiVxafc-kwQcy", "name": "EVS XT2 Technical Manual.pdf"},
-    {"id": "1WPoAKGJwxvKiAcZ8EwBpuLunrh95Q4NY", "name": "SONY MVS3000 Manual.pdf"},
-    {"id": "19druLRTdute3i3qwG5xH23k-uEBTM6VA", "name": "SONY UTX-B03, URX-P03.pdf"},
-    {"id": "1t0e44t05OrON3uuB5h0vS5xChYf5foGj", "name": "SENNHEISER EM2050 Manual.pdf"},
-    {"id": "1bL-5pI6YTCmq8X5ugFSf86Sl-0VH-AbP", "name": "YAMAHA DM1000_kor.pdf"},
-    {"id": "1XFA9Jm0C0LXp2d3lVKlIfu3qMoHB5Tt5", "name": "YAMAHA CL 한글.pdf"},
-    {"id": "1bMLB20HSMyvK1LDR5aJ6YE3999BTtk1a", "name": "DM2000 한글메뉴얼.pdf"},
-]
-
 
 def _drive_url(file_id: str) -> str:
     return f"https://drive.google.com/file/d/{file_id}/view"
 
 
 def list_drive_manuals() -> tuple[list[dict], str]:
-    """Return PDFs in the configured folder, falling back to the verified list."""
+    """Return PDFs in the configured Google Drive folder."""
+    if not DRIVE_FOLDER_ID:
+        return [], "MANUAL_DRIVE_FOLDER_ID 미설정"
     try:
         import google.auth
         from googleapiclient.discovery import build
@@ -68,10 +55,7 @@ def list_drive_manuals() -> tuple[list[dict], str]:
     except Exception:
         pass
 
-    return [
-        {**item, "url": _drive_url(item["id"]), "size": 0, "modified_time": None}
-        for item in DEFAULT_DRIVE_MANUALS
-    ], "등록된 공유 폴더 목록"
+    return [], "Google Drive 목록을 불러오지 못했습니다"
 
 
 def download_drive_pdf(file_id: str) -> bytes:
