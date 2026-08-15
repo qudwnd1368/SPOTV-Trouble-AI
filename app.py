@@ -137,15 +137,16 @@ if page == "AI 장애 검색":
                 score, top = results[0]
                 st.markdown("## 가장 유사한 과거 사례")
                 card(top, score, 0)
+            related_results = results[1:] if results else []
             analysis, checks = analyze(query, top)
             st.markdown("## AI 분석")
             st.write(analysis)
             st.markdown("### 우선 점검 권장사항")
             for idx, check in enumerate(checks, 1): st.write(f"{idx}. {check}")
             st.markdown(f'<div class="notice"><b>주의사항</b><br>{DISCLAIMER}</div>', unsafe_allow_html=True)
-            if results:
+            if related_results:
                 st.markdown("## 관련 과거 사례 TOP 3")
-                for rank, (similarity, item) in enumerate(results): card(item, similarity, rank)
+                for rank, (similarity, item) in enumerate(related_results, 1): card(item, similarity, rank)
 
 elif page == "장애이력 관리":
     st.title("장애이력 관리")
