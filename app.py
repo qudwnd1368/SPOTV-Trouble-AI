@@ -21,7 +21,7 @@ GOOGLE_LOGIN_ENABLED = os.getenv("ENABLE_GOOGLE_LOGIN", "false").lower() == "tru
 ALLOWED_EMAILS = {
     email.strip().lower()
     for source in [os.getenv("ALLOWED_EMAILS", ""), os.getenv("ADDITIONAL_ALLOWED_EMAILS", "")]
-    for email in source.split(",")
+    for email in source.replace(";", ",").split(",")
     if email.strip()
 }
 
