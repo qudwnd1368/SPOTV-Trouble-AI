@@ -1,16 +1,12 @@
 """Firestore implementation used by the Cloud Run deployment."""
 
 import os
-import time
 from datetime import datetime, timezone
 
 from models import Incident
 from seed_data import SEED_INCIDENTS
 
 COLLECTION = os.getenv("FIRESTORE_COLLECTION", "incidents")
-MANUAL_COLLECTION = os.getenv("FIRESTORE_MANUAL_COLLECTION", "manuals")
-MANUAL_INDEX_COLLECTION = os.getenv("FIRESTORE_MANUAL_INDEX_COLLECTION", "manual_index_parts")
-_MANUAL_CACHE = {"loaded_at": 0.0, "chunks": None}
 
 
 def _client():
@@ -28,14 +24,6 @@ def _now():
 
 def _collection():
     return _client().collection(COLLECTION)
-
-
-def _manual_collection():
-    return _client().collection(MANUAL_COLLECTION)
-
-
-def _manual_index_collection():
-    return _client().collection(MANUAL_INDEX_COLLECTION)
 
 
 def _to_incident(snapshot):
@@ -119,72 +107,3 @@ def upsert_by_incident_number(data, embedding=None):
         update_incident(existing.id, data, embedding)
     else:
         add_incident(data, embedding)
-
-
-def list_manuals():
-    return [snapshot.to_dict() or {} for snapshot in _manual_collection().order_by("title").stream()]
-
-
-def list_manual_chunks():
-    if _MANUAL_CACHE["chunks"] is not None and time.monotonic() - _MANUAL_CACHE["loaded_at"] < 300:
-        return _MANUAL_CACHE["chunks"]
-    chunks = []
-    for snapshot in _manual_index_collection().stream():
-        chunks.extend((snapshot.to_dict() or {}).get("chunks", []))
-    _MANUAL_CACHE.update({"loaded_at": time.monotonic(), "chunks": chunks})
-    return chunks
-
-
-def _delete_query(query):
-    pending = []
-    for snapshot in query.stream():
-        pending.append(snapshot.reference)
-        if len(pending) == 400:
-            batch = _client().batch()
-            for reference in pending:
-                batch.delete(reference)
-            batch.commit()
-            pending = []
-    if pending:
-        batch = _client().batch()
-        for reference in pending:
-            batch.delete(reference)
-        batch.commit()
-
-
-def _pack_chunks(chunks, max_chars=500_000):
-    parts, current, current_size = [], [], 0
-    for chunk in chunks:
-        size = len(chunk.get("content", "")) + len(chunk.get("title", "")) + 200
-        if current and current_size + size > max_chars:
-            parts.append(current)
-            current, current_size = [], 0
-        current.append(chunk)
-        current_size += size
-    if current:
-        parts.append(current)
-    return parts
-
-
-def replace_manual(metadata, chunks):
-    manual_id = str(metadata["id"])
-    _delete_query(_manual_index_collection().where("manual_id", "==", manual_id))
-    batch = _client().batch()
-    for index, part in enumerate(_pack_chunks(chunks)):
-        reference = _manual_index_collection().document(f"{manual_id}-{index:04d}")
-        batch.set(reference, {"manual_id": manual_id, "part": index, "chunks": part})
-    batch.set(_manual_collection().document(manual_id), metadata)
-    batch.commit()
-    _MANUAL_CACHE.update({"loaded_at": 0.0, "chunks": None})
-
-
-def delete_manual(manual_id):
-    manual_id = str(manual_id)
-    _delete_query(_manual_index_collection().where("manual_id", "==", manual_id))
-    _manual_collection().document(manual_id).delete()
-    _MANUAL_CACHE.update({"loaded_at": 0.0, "chunks": None})
-
-
-def manual_stats():
-    manuals = list_manuals()
-    return len(manuals), sum(item.get("page_count", 0) for item in manuals), sum(item.get("chunk_count", 0) for item in manuals)

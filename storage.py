@@ -33,23 +33,3 @@ def delete_incident(*args, **kwargs):
 
 def stats(*args, **kwargs):
     return _backend().stats(*args, **kwargs)
-
-
-def list_manuals(*args, **kwargs):
-    return _backend().list_manuals(*args, **kwargs)
-
-
-def list_manual_chunks(*args, **kwargs):
-    return _backend().list_manual_chunks(*args, **kwargs)
-
-
-def replace_manual(*args, **kwargs):
-    return _backend().replace_manual(*args, **kwargs)
-
-
-def delete_manual(*args, **kwargs):
-    return _backend().delete_manual(*args, **kwargs)
-
-
-def manual_stats(*args, **kwargs):
-    return _backend().manual_stats(*args, **kwargs)

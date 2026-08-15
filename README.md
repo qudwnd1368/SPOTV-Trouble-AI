@@ -1,7 +1,5 @@
 # SPOTV Trouble AI
 
-장애이력과 장비 매뉴얼을 함께 검색하는 방송 기술 장애 대응 시스템입니다. 관리자 메뉴에서 Google Drive 공유 폴더 또는 직접 업로드한 PDF를 페이지별로 색인하며, 검색 결과에 매뉴얼명·페이지·원문 링크를 표시합니다.
-
 방송 장애이력을 자연어로 검색하고, 과거 사례를 근거로 안전한 점검 순서를 제안하는 Streamlit MVP입니다.
 
 ## Windows에서 가장 쉽게 실행하기
@@ -30,7 +28,7 @@ API 키를 소스 코드나 GitHub에 올리지 마세요. `.env`는 `.gitignore
 
 ## 관리자 메뉴와 사이드바 이미지
 
-장애이력 관리, 새 장애 등록, 매뉴얼 관리, 시스템 정보 메뉴는 관리자 비밀번호로 보호됩니다. `.env` 또는 Google Secret Manager의 `ADMIN_PASSWORD` 값을 반드시 설정해야 합니다. 실제 비밀번호는 저장소에 커밋하지 마세요.
+장애이력 관리, 새 장애 등록, 시스템 정보 메뉴는 관리자 비밀번호로 보호됩니다. `.env` 또는 Google Secret Manager의 `ADMIN_PASSWORD` 값을 반드시 설정해야 합니다. 실제 비밀번호는 저장소에 커밋하지 마세요.
 
 사이드바에 사용할 이미지는 `assets` 폴더를 만들고 `sidebar_logo.png`라는 이름으로 넣으면 자동 표시됩니다. JPG 파일은 `sidebar_logo.jpg`를 사용할 수 있습니다.
 
@@ -53,6 +51,16 @@ Copy-Item .env.example .env
 
 초기 실행 시 SQLite DB(`spotv_trouble.db`)와 기본 장애사례 5건이 자동 생성됩니다. 등록·수정·삭제 내용은 즉시 검색 대상에 반영됩니다.
 
+## 여러 PC에서 작업하기
+
+작업 기준은 GitHub `main` 브랜치입니다. 다른 PC에서는 저장소를 clone하거나 기존 폴더에서 pull 받은 뒤 수정하고, 완료 후 commit/push하면 됩니다.
+
+```powershell
+git clone https://github.com/qudwnd1368/SPOTV-Trouble-AI.git
+cd SPOTV-Trouble-AI
+git pull origin main
+```
+
 ## 파일 구성
 
 - `app.py`: Streamlit 화면과 사용자 흐름
@@ -69,13 +77,10 @@ Copy-Item .env.example .env
 
 - Cloud Run: Streamlit 앱 실행
 - Firestore: 장애이력 중앙 저장
-- Firestore `manuals`, `manual_index_parts`: 매뉴얼 정보와 검색 색인 저장
 - Google OIDC: 허용된 팀원 Google 계정 로그인
 - Secret Manager: OAuth 비밀키, 관리자 비밀번호 저장
 
 Cloud Run의 로컬 디스크는 영구 저장소가 아니므로 `DATABASE_BACKEND=firestore`일 때 `storage.py`가 Firestore 구현으로 자동 전환됩니다. 로컬 실행은 계속 SQLite를 사용합니다.
-
-관리자 로그인 후 **매뉴얼 관리 → Drive 폴더 색인 동기화**를 누르면 공유 폴더의 PDF가 색인됩니다. `MANUAL_DRIVE_FOLDER_ID` 환경변수에 공유 폴더 ID를 설정해야 합니다. 폴더 ID와 원본 파일은 공개 저장소에 커밋하지 마세요. 원본 PDF를 나중에 삭제해도 Firestore 색인은 별도로 삭제하기 전까지 유지됩니다.
 
 ### 1단계: 비공개 초기 배포
 
@@ -103,9 +108,15 @@ OAuth Client ID와 허용할 팀원 이메일을 입력합니다. Client Secret�
 powershell -ExecutionPolicy Bypass -File .\release_google_cloud.ps1 `
   -ProjectId "내-프로젝트-ID" `
   -OAuthClientId "클라이언트-ID.apps.googleusercontent.com" `
-  -AllowedEmails "user1@company.com,user2@company.com" `
-  -ManualDriveFolderId "공유-드라이브-폴더-ID"
+  -AllowedEmails "user1@company.com,user2@company.com"
 ```
+
+### GitHub 자동 배포
+
+`.github/workflows/deploy-cloud-run.yml`은 `main` 브랜치에 push될 때 테스트 후 Cloud Run을 재배포합니다. GitHub 저장소의 **Settings → Secrets and variables → Actions**에 다음 값을 등록해야 합니다.
+
+- `GCP_PROJECT_ID`: Google Cloud 프로젝트 ID
+- `GCP_SA_KEY`: Cloud Run 배포 권한이 있는 서비스 계정 JSON 키
 
 ### 기존 로컬 장애이력 이전
 

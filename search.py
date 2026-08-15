@@ -81,24 +81,6 @@ def semantic_search(query, incidents, limit=3):
     return local_search(query, incidents, limit)
 
 
-def manual_search(query, chunks, limit=5):
-    """Search indexed manual passages without a paid vector database."""
-    q = local_vector(query)
-    query_terms = {
-        term for term in re.findall(r"[0-9a-zA-Z가-힣+-]+", query.lower()) if len(term) > 1
-    }
-    scored = []
-    for chunk in chunks:
-        haystack = f"{chunk.get('title', '')} {chunk.get('content', '')}"
-        score = cosine(q, local_vector(haystack))
-        normalized_haystack = haystack.lower()
-        exact_hits = sum(1 for term in query_terms if term in normalized_haystack)
-        score += min(0.35, exact_hits * 0.07)
-        if score > 0:
-            scored.append((score, chunk))
-    return sorted(scored, key=lambda item: item[0], reverse=True)[:limit]
-
-
 def relevance_label(score, rank):
     if rank == 0 and score >= 0.30: return "매우 관련 높음"
     if score >= 0.16: return "관련 높음"
