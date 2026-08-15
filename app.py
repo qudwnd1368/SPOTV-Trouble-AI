@@ -18,7 +18,12 @@ st.markdown(CSS, unsafe_allow_html=True)
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 PROTECTED_PAGES = {"장애이력 관리", "새 장애 등록", "시스템 정보"}
 GOOGLE_LOGIN_ENABLED = os.getenv("ENABLE_GOOGLE_LOGIN", "false").lower() == "true"
-ALLOWED_EMAILS = {email.strip().lower() for email in os.getenv("ALLOWED_EMAILS", "").split(",") if email.strip()}
+ALLOWED_EMAILS = {
+    email.strip().lower()
+    for source in [os.getenv("ALLOWED_EMAILS", ""), os.getenv("ADDITIONAL_ALLOWED_EMAILS", "")]
+    for email in source.split(",")
+    if email.strip()
+}
 
 
 def require_user_access():
