@@ -1,4 +1,6 @@
+import html
 import hmac
+import logging
 import os
 import sqlite3
 from datetime import datetime
@@ -13,6 +15,10 @@ from search import create_embedding, is_ambiguous, relevance_label, semantic_sea
 from styles import CSS
 
 load_dotenv()
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(levelname)s:%(name)s:%(message)s",
+)
 st.set_page_config(page_title="SPOTV Trouble AI", page_icon="📡", layout="wide", initial_sidebar_state="expanded")
 st.markdown(CSS, unsafe_allow_html=True)
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
@@ -48,11 +54,17 @@ db.init_db()
 
 
 def card(item, score, rank):
-    st.markdown(f"""<div class="card"><span class="badge">{relevance_label(score, rank)}</span>
-    <h3>사고번호 {item.incident_number} · {item.equipment}</h3>
-    <div class="label">증상</div><div class="value">{item.symptom}</div>
-    <div class="label">원인</div><div class="value">{item.cause}</div>
-    <div class="label">조치</div><div class="value">{item.action}</div></div>""", unsafe_allow_html=True)
+    label = html.escape(relevance_label(score, rank))
+    incident_number = html.escape(str(item.incident_number))
+    equipment = html.escape(str(item.equipment))
+    symptom = html.escape(str(item.symptom))
+    cause = html.escape(str(item.cause))
+    action = html.escape(str(item.action))
+    st.markdown(f"""<div class="card"><span class="badge">{label}</span>
+    <h3>사고번호 {incident_number} · {equipment}</h3>
+    <div class="label">증상</div><div class="value">{symptom}</div>
+    <div class="label">원인</div><div class="value">{cause}</div>
+    <div class="label">조치</div><div class="value">{action}</div></div>""", unsafe_allow_html=True)
 
 
 def incident_fields(prefix, item=None):

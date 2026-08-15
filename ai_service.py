@@ -1,5 +1,8 @@
+import logging
 import os
 
+
+logger = logging.getLogger(__name__)
 
 DISCLAIMER = "과거 장애사례를 기반으로 한 참고 정보이며 현재 장애 원인을 확정하는 것은 아닙니다."
 
@@ -23,10 +26,11 @@ def fallback_analysis(query, incident=None):
 
 
 def analyze(query, incident=None):
+    if not os.getenv("OPENAI_API_KEY"):
+        logger.info("OPENAI_API_KEY is not set; using fallback analysis.")
+        return fallback_analysis(query, incident)
     try:
         from openai import OpenAI
-        if not os.getenv("OPENAI_API_KEY"):
-            raise RuntimeError
         incident_context = "과거 장애이력 없음"
         if incident:
             incident_context = f"""과거 장비: {incident.equipment}
@@ -43,4 +47,5 @@ def analyze(query, incident=None):
         analysis = " ".join(x.strip() for x in lines if not x.strip().startswith("- "))
         return (analysis, checks) if analysis and checks else fallback_analysis(query, incident)
     except Exception:
+        logger.exception("OpenAI analysis failed; using fallback analysis.")
         return fallback_analysis(query, incident)

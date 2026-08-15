@@ -26,6 +26,12 @@ OPENAI_API_KEY=여기에_본인의_API_키
 
 API 키를 소스 코드나 GitHub에 올리지 마세요. `.env`는 `.gitignore`에 포함되어 있습니다.
 
+## 주요 설정값
+
+- `LOG_LEVEL`: 앱 로그 수준입니다. 기본값은 `INFO`입니다.
+- `ALLOWED_EMAILS`: 사이트에 접근할 수 있는 기본 Google 계정 이메일 목록입니다.
+- `ADDITIONAL_ALLOWED_EMAILS`: 추가 접근 허용 이메일 목록입니다. 쉼표 또는 세미콜론으로 구분합니다.
+
 ## 관리자 메뉴와 사이드바 이미지
 
 장애이력 관리, 새 장애 등록, 시스템 정보 메뉴는 관리자 비밀번호로 보호됩니다. `.env` 또는 Google Secret Manager의 `ADMIN_PASSWORD` 값을 반드시 설정해야 합니다. 실제 비밀번호는 저장소에 커밋하지 마세요.
@@ -117,6 +123,7 @@ powershell -ExecutionPolicy Bypass -File .\release_google_cloud.ps1 `
 
 - `GCP_PROJECT_ID`: Google Cloud 프로젝트 ID
 - `GCP_SA_KEY`: Cloud Run 배포 권한이 있는 서비스 계정 JSON 키
+- `ADDITIONAL_ALLOWED_EMAILS`: 추가 접근 허용 이메일 목록. 쉼표 또는 세미콜론으로 구분합니다.
 
 ### 기존 로컬 장애이력 이전
 

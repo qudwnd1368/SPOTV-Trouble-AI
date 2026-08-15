@@ -12,8 +12,6 @@ permissions:
 env:
   SERVICE_NAME: spotv-trouble-ai
   REGION: asia-northeast3
-  ADDITIONAL_ALLOWED_EMAILS: >-
-    justjyh2@gmail.com;jinsil.kim84@gmail.com;yje92725@gmail.com;woohj2222@gmail.com;codec258016@gmail.com;xogus2331@naver.com;kaltosheewon@gmail.com;kkm94965@gmail.com;minjeongchu448@gmail.com;yunalim230@gmail.com;noyr24862@gmail.com;kimhanbyeol050604@gmail.com;jwlee0630@naver.com;sunguriii91@gmail.com;shinuy031220@gmail.com;lih08211111@gmail.com
 
 jobs:
   test:
@@ -38,6 +36,8 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     needs: test
+    env:
+      ADDITIONAL_ALLOWED_EMAILS: ${{ secrets.ADDITIONAL_ALLOWED_EMAILS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

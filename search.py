@@ -1,10 +1,13 @@
 import hashlib
 import json
+import logging
 import math
 import os
 import re
 from collections import Counter
 
+
+logger = logging.getLogger(__name__)
 
 ALIASES = {
     "안먹어": "반응하지않음", "안 먹어": "반응하지않음", "안돼": "불량",
@@ -52,7 +55,8 @@ def get_openai_client():
     try:
         from openai import OpenAI
         return OpenAI()
-    except Exception:
+    except Exception as exc:
+        logger.warning("OpenAI client is unavailable; local search will be used: %s", exc)
         return None
 
 
@@ -64,6 +68,7 @@ def create_embedding(text):
         response = client.embeddings.create(model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"), input=text)
         return json.dumps(response.data[0].embedding)
     except Exception:
+        logger.exception("Failed to create OpenAI embedding; saving incident without embedding.")
         return None
 
 
@@ -77,7 +82,7 @@ def semantic_search(query, incidents, limit=3):
                 return sum(x*y for x, y in zip(q, v)) / (math.sqrt(sum(x*x for x in q))*math.sqrt(sum(y*y for y in v)))
             return sorted([(dense_cos(i.embedding), i) for i in incidents], key=lambda x: x[0], reverse=True)[:limit]
         except Exception:
-            pass
+            logger.exception("OpenAI semantic search failed; falling back to local search.")
     return local_search(query, incidents, limit)
 
 
