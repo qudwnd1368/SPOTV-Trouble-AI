@@ -65,6 +65,9 @@ Copy-Item .env.example .env
 - 상황
 - 조치
 - 주의사항
+- 첨부 사진(선택, 최대 2장)
+
+첨부 사진은 PNG/JPG/WebP를 지원하며 업로드 시 긴 변 1600px 이하의 WebP로 자동 최적화됩니다. 목록에서는 내려받지 않고, 지식을 연 뒤 `첨부 사진 보기`를 선택했을 때 표시됩니다. 로컬 실행에서는 `.data`에, Google Cloud 배포에서는 비공개 Cloud Storage 버킷의 `SPOTV Tech Copilot/knowledge` 경로에 저장됩니다.
 
 ## 여러 PC에서 작업하기
 
@@ -80,6 +83,7 @@ git pull origin main
 
 - `app.py`: Streamlit 화면과 사용자 흐름
 - `database.py`: SQLite 스키마와 CRUD
+- `image_storage.py`: 이미지 최적화와 로컬/Cloud Storage 저장
 - `search.py`: OpenAI 임베딩 및 로컬 검색
 - `ai_service.py`: 기술 지식 검색 결과 안내 문구
 - `seed_data.py`: 초기 기술 지식 5건
@@ -92,6 +96,7 @@ git pull origin main
 
 - Cloud Run: Streamlit 앱 실행
 - Firestore: 기술 지식 중앙 저장
+- Cloud Storage: `SPOTV Tech Copilot` 첨부 사진 비공개 저장
 - Google OIDC: 허용된 팀원 Google 계정 로그인
 - Secret Manager: OAuth 비밀키, 관리자 비밀번호 저장
 

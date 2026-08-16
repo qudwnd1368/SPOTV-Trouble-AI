@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, Optional, Union
 
 
 @dataclass
@@ -12,6 +12,7 @@ class KnowledgeItem:
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     embedding: Optional[str] = None
+    images: list[dict[str, Any]] = field(default_factory=list)
 
 
 # Backward-compatible alias while older storage helpers are phased out.

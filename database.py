@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import uuid
 from pathlib import Path
@@ -28,6 +29,7 @@ def init_db(db_path=DB_PATH):
             title TEXT NOT NULL DEFAULT '',
             context TEXT NOT NULL DEFAULT '',
             caution TEXT NOT NULL DEFAULT '',
+            images TEXT NOT NULL DEFAULT '[]',
             embedding TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -35,6 +37,7 @@ def init_db(db_path=DB_PATH):
         _ensure_column(con, "title", "TEXT NOT NULL DEFAULT ''")
         _ensure_column(con, "context", "TEXT NOT NULL DEFAULT ''")
         _ensure_column(con, "caution", "TEXT NOT NULL DEFAULT ''")
+        _ensure_column(con, "images", "TEXT NOT NULL DEFAULT '[]'")
         _backfill_knowledge_fields(con)
         if con.execute("SELECT COUNT(*) FROM incidents").fetchone()[0] == 0:
             for item in SEED_KNOWLEDGE_ITEMS:
@@ -67,6 +70,13 @@ def _normalize_data(data):
     legacy_symptom = (data.get("symptom") or "").strip()
     legacy_cause = (data.get("cause") or "").strip()
     legacy_notes = (data.get("notes") or "").strip()
+    images = data.get("images") or []
+    if isinstance(images, str):
+        try:
+            images = json.loads(images)
+        except json.JSONDecodeError:
+            images = []
+    images = [image for image in images if isinstance(image, dict)] if isinstance(images, list) else []
 
     if not title:
         title = " ".join(part for part in [legacy_equipment, legacy_symptom] if part).strip()
@@ -86,18 +96,20 @@ def _normalize_data(data):
         "symptom": legacy_symptom or context,
         "cause": legacy_cause,
         "notes": legacy_notes or caution,
+        "images": images,
     }
 
 
 def _insert(con, data, embedding=None):
     item = _normalize_data(data)
     con.execute("""INSERT INTO incidents
-        (incident_number, occurred_at, equipment, symptom, cause, action, notes, title, context, caution, embedding)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
+        (incident_number, occurred_at, equipment, symptom, cause, action, notes, title, context, caution, images, embedding)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (
         item["incident_number"], item["occurred_at"], item["equipment"], item["symptom"],
         item["cause"], item["action"], item["notes"], item["title"], item["context"],
-        item["caution"], embedding,
+        item["caution"], json.dumps(item["images"], ensure_ascii=False), embedding,
     ))
+    return con.execute("SELECT last_insert_rowid()").fetchone()[0]
 
 
 def _row_to_knowledge(row):
@@ -111,6 +123,7 @@ def _row_to_knowledge(row):
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         embedding=row["embedding"],
+        images=data["images"],
     )
 
 
@@ -121,21 +134,18 @@ def list_knowledge_items(db_path=DB_PATH):
 
 def add_knowledge_item(data, embedding=None, db_path=DB_PATH):
     with connect(db_path) as con:
-        _insert(con, data, embedding)
+        return _insert(con, data, embedding)
 
 
 def update_knowledge_item(item_id: int, data, embedding=None, db_path=DB_PATH):
-    item = _normalize_data(data)
     with connect(db_path) as con:
-        current = con.execute("SELECT incident_number, occurred_at, equipment, symptom, cause, notes FROM incidents WHERE id=?", (item_id,)).fetchone()
-        if current:
-            existing = _normalize_data({**dict(current), **data})
-            item["incident_number"] = existing["incident_number"]
-            item["occurred_at"] = existing["occurred_at"]
+        current = con.execute("SELECT * FROM incidents WHERE id=?", (item_id,)).fetchone()
+        item = _normalize_data({**(dict(current) if current else {}), **data})
         con.execute("""UPDATE incidents SET equipment=?, symptom=?, cause=?, action=?, notes=?,
-            title=?, context=?, caution=?, embedding=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""", (
+            title=?, context=?, caution=?, images=?, embedding=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""", (
             item["equipment"], item["symptom"], item["cause"], item["action"], item["notes"],
-            item["title"], item["context"], item["caution"], embedding, item_id,
+            item["title"], item["context"], item["caution"],
+            json.dumps(item["images"], ensure_ascii=False), embedding, item_id,
         ))
 
 

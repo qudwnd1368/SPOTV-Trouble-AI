@@ -90,15 +90,18 @@ def test_knowledge_crud(tmp_path):
         "context": "인터컴 마이크 레벨이 작게 들리는 상황.",
         "action": "KP12 패널 입력 게인과 매트릭스 라우팅을 확인한다.",
         "caution": "운영 중 전체 레벨을 급격히 올리지 말고 개별 패널부터 확인한다.",
+        "images": [{"path": "1/test.webp", "name": "test.png"}],
     }
     db.add_knowledge_item(data, "[1, 0]", path)
     item = db.list_knowledge_items(path)[0]
     assert item.title == data["title"]
+    assert item.images == data["images"]
     data["context"] = "인터컴 마이크 레벨이 작거나 노이즈가 섞이는 상황."
     db.update_knowledge_item(item.id, data, "[0, 1]", path)
     updated = db.list_knowledge_items(path)[0]
     assert updated.context == data["context"]
     assert updated.embedding == "[0, 1]"
+    assert updated.images == data["images"]
     db.delete_knowledge_item(item.id, path)
     assert len(db.list_knowledge_items(path)) == 5
 

@@ -37,6 +37,8 @@ def _normalize_data(data):
     legacy_symptom = str(data.get("symptom") or "").strip()
     legacy_cause = str(data.get("cause") or "").strip()
     legacy_notes = str(data.get("notes") or "").strip()
+    images = data.get("images") or []
+    images = [image for image in images if isinstance(image, dict)] if isinstance(images, list) else []
 
     if not title:
         title = " ".join(part for part in [legacy_equipment, legacy_symptom] if part).strip()
@@ -56,6 +58,7 @@ def _normalize_data(data):
         "symptom": legacy_symptom or context,
         "cause": legacy_cause,
         "notes": legacy_notes or caution,
+        "images": images,
     }
 
 
@@ -71,6 +74,7 @@ def _to_knowledge(snapshot):
         created_at=raw.get("created_at"),
         updated_at=raw.get("updated_at"),
         embedding=raw.get("embedding"),
+        images=data["images"],
     )
 
 
@@ -99,7 +103,9 @@ def list_knowledge_items():
 
 
 def add_knowledge_item(data, embedding=None):
-    _collection().document().set(_clean(data, embedding))
+    reference = _collection().document()
+    reference.set(_clean(data, embedding))
+    return reference.id
 
 
 def update_knowledge_item(item_id, data, embedding=None):

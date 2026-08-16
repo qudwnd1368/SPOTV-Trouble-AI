@@ -12,6 +12,7 @@ permissions:
 env:
   SERVICE_NAME: spotv-trouble-ai
   REGION: asia-northeast3
+  IMAGE_OBJECT_PREFIX: SPOTV Tech Copilot/knowledge
 
 jobs:
   test:
@@ -40,6 +41,8 @@ jobs:
       ADDITIONAL_ALLOWED_EMAILS: ${{ secrets.ADDITIONAL_ALLOWED_EMAILS }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_CHAT_MODEL: ${{ vars.OPENAI_CHAT_MODEL || 'gpt-5.6-luna' }}
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      IMAGE_BUCKET_NAME: ${{ secrets.GCP_PROJECT_ID }}-spotv-tech-copilot
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,12 +55,30 @@ jobs:
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Provision private image storage
+        run: |
+          gcloud services enable storage.googleapis.com --project "$PROJECT_ID"
+          if ! gcloud storage buckets describe "gs://$IMAGE_BUCKET_NAME" --project "$PROJECT_ID" > /dev/null 2>&1; then
+            gcloud storage buckets create "gs://$IMAGE_BUCKET_NAME" \
+              --project "$PROJECT_ID" \
+              --location "$REGION" \
+              --uniform-bucket-level-access \
+              --public-access-prevention
+          fi
+          gcloud storage buckets update "gs://$IMAGE_BUCKET_NAME" \
+            --uniform-bucket-level-access \
+            --public-access-prevention
+          gcloud storage buckets add-iam-policy-binding "gs://$IMAGE_BUCKET_NAME" \
+            --member "serviceAccount:$SERVICE_NAME-runtime@$PROJECT_ID.iam.gserviceaccount.com" \
+            --role "roles/storage.objectUser" \
+            --quiet
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy "$SERVICE_NAME" \
             --source . \
             --project "${{ secrets.GCP_PROJECT_ID }}" \
             --region "$REGION" \
-            --update-env-vars "ADDITIONAL_ALLOWED_EMAILS=$ADDITIONAL_ALLOWED_EMAILS,OPENAI_API_KEY=$OPENAI_API_KEY,OPENAI_CHAT_MODEL=$OPENAI_CHAT_MODEL" \
+            --update-env-vars "ADDITIONAL_ALLOWED_EMAILS=$ADDITIONAL_ALLOWED_EMAILS,OPENAI_API_KEY=$OPENAI_API_KEY,OPENAI_CHAT_MODEL=$OPENAI_CHAT_MODEL,IMAGE_BUCKET_NAME=$IMAGE_BUCKET_NAME,IMAGE_OBJECT_PREFIX=$IMAGE_OBJECT_PREFIX" \
             --allow-unauthenticated \
             --quiet

@@ -16,6 +16,15 @@ if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
 gcloud config set project $ProjectId
 $serviceAccountEmail = "$ServiceName-runtime@$ProjectId.iam.gserviceaccount.com"
 $serviceUrl = gcloud run services describe $ServiceName --project $ProjectId --region $Region --format "value(status.url)"
+$imageBucketName = "$ProjectId-spotv-tech-copilot"
+
+gcloud services enable storage.googleapis.com --project $ProjectId
+gcloud storage buckets describe "gs://$imageBucketName" --project $ProjectId 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    gcloud storage buckets create "gs://$imageBucketName" --project $ProjectId --location $Region --uniform-bucket-level-access --public-access-prevention
+}
+gcloud storage buckets update "gs://$imageBucketName" --uniform-bucket-level-access --public-access-prevention | Out-Null
+gcloud storage buckets add-iam-policy-binding "gs://$imageBucketName" --member "serviceAccount:$serviceAccountEmail" --role "roles/storage.objectUser" --quiet | Out-Null
 
 $oauthSecretSecure = Read-Host "OAuth client secret" -AsSecureString
 $adminPasswordSecure = Read-Host "Administrator password" -AsSecureString
@@ -57,7 +66,7 @@ gcloud run deploy $ServiceName `
     --cpu 1 `
     --min 0 `
     --max 2 `
-    --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=true,APP_URL=$serviceUrl,OAUTH_CLIENT_ID=$OAuthClientId,ALLOWED_EMAILS=$AllowedEmails" `
+    --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=true,APP_URL=$serviceUrl,OAUTH_CLIENT_ID=$OAuthClientId,ALLOWED_EMAILS=$AllowedEmails,IMAGE_BUCKET_NAME=$imageBucketName,IMAGE_OBJECT_PREFIX=SPOTV Tech Copilot/knowledge" `
     --set-secrets "OAUTH_CLIENT_SECRET=spotv-oauth-client-secret:latest,COOKIE_SECRET=spotv-cookie-secret:latest,ADMIN_PASSWORD=spotv-admin-password:latest"
 
 Write-Host "SPOTV Tech Copilot is live: $serviceUrl" -ForegroundColor Green

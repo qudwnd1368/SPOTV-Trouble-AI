@@ -12,6 +12,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 import storage as db
+import image_storage
 from ai_service import DISCLAIMER, answer_general_question, answer_intro
 from search import create_knowledge_embedding, relevance_label, semantic_search
 from styles import CSS
@@ -21,6 +22,7 @@ APP_SUBTITLE = "AI 기반 방송기술 지식 · 인수인계 지원 시스템"
 PROTECTED_PAGES = {"기술 지식 관리", "시스템 정보"}
 NAV_OPTIONS = ["AI 질문", "기술 지식 관리", "시스템 정보"]
 NAV_KEY = "main_navigation_v3"
+SEARCH_RESPONSE_KEY = "knowledge_search_response_v1"
 
 load_dotenv()
 logging.basicConfig(
@@ -122,7 +124,26 @@ def knowledge_fields(prefix, item=None):
     context = st.text_area("상황", value=item.context if item else "", placeholder="어떤 상황에서 문제가 발생했거나 작업이 필요한지 적어주세요.", key=f"{prefix}_context")
     action = st.text_area("조치", value=item.action if item else "", placeholder="실제로 해결했거나 작업했던 방법을 적어주세요.", key=f"{prefix}_action")
     caution = st.text_area("주의사항", value=item.caution if item else "", placeholder="다시 발생했을 때 반드시 알아야 할 내용을 적어주세요.", key=f"{prefix}_caution")
-    return {"title": title, "context": context, "action": action, "caution": caution}
+    uploads = st.file_uploader(
+        "사진 첨부 (선택, 최대 2장)",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        key=f"{prefix}_images",
+        help="PNG/JPG/WebP 파일을 자동으로 최적화하여 저장합니다. 파일당 최대 5MB입니다.",
+    )
+    existing_images = list(getattr(item, "images", []) or [])
+    removed_paths = []
+    if existing_images:
+        names = {image.get("path", ""): image.get("name") or "첨부 사진" for image in existing_images}
+        removed_paths = st.multiselect(
+            "삭제할 기존 사진",
+            options=list(names),
+            format_func=lambda path: names[path],
+            key=f"{prefix}_removed_images",
+        )
+        st.caption(f"현재 {len(existing_images)}장 · 삭제 선택 후 새 사진으로 교체할 수 있습니다.")
+    data = {"title": title, "context": context, "action": action, "caution": caution}
+    return data, list(uploads or []), removed_paths
 
 
 def valid_knowledge(data):
@@ -131,6 +152,61 @@ def valid_knowledge(data):
 
 def save_embedding(data):
     return create_knowledge_embedding(data)
+
+
+def image_changes(item, uploads, removed_paths):
+    existing = list(getattr(item, "images", []) or []) if item else []
+    removed_set = set(removed_paths)
+    removed = [image for image in existing if image.get("path") in removed_set]
+    kept = [image for image in existing if image.get("path") not in removed_set]
+    if len(kept) + len(uploads) > image_storage.MAX_IMAGES:
+        raise ValueError("사진은 기존 사진을 포함하여 지식당 최대 2장까지 등록할 수 있습니다.")
+    return kept, removed, image_storage.prepare_images(uploads)
+
+
+def add_knowledge(data, uploads):
+    _, _, prepared = image_changes(None, uploads, [])
+    embedding = save_embedding(data)
+    item_id = None
+    uploaded = []
+    try:
+        item_id = db.add_knowledge_item(data, embedding)
+        uploaded = image_storage.upload_images(item_id, prepared)
+        if uploaded:
+            db.update_knowledge_item(item_id, {**data, "images": uploaded}, embedding)
+    except Exception:
+        image_storage.delete_images(uploaded)
+        if item_id is not None:
+            db.delete_knowledge_item(item_id)
+        raise
+
+
+def update_knowledge(item, data, uploads, removed_paths):
+    kept, removed, prepared = image_changes(item, uploads, removed_paths)
+    embedding = save_embedding(data)
+    uploaded = image_storage.upload_images(item.id, prepared)
+    try:
+        db.update_knowledge_item(item.id, {**data, "images": kept + uploaded}, embedding)
+    except Exception:
+        image_storage.delete_images(uploaded)
+        raise
+    image_storage.delete_images(removed)
+
+
+def render_knowledge_images(item, key):
+    images = list(getattr(item, "images", []) or [])
+    if not images:
+        return
+    if not st.toggle(f"첨부 사진 보기 ({len(images)}장)", key=f"show_images_{key}"):
+        return
+    columns = st.columns(len(images))
+    for column, image in zip(columns, images):
+        with column:
+            try:
+                st.image(image_storage.download_image(image), caption=image.get("name") or "첨부 사진", use_container_width=True)
+            except Exception:
+                logging.exception("Failed to load knowledge image: %s", image.get("path"))
+                st.warning("사진을 불러오지 못했습니다.")
 
 
 def render_recent(items):
@@ -143,6 +219,7 @@ def render_recent(items):
             st.markdown(f"**상황**  \n{item.context}")
             st.markdown(f"**조치**  \n{item.action}")
             st.markdown(f"**주의사항**  \n{item.caution}")
+            render_knowledge_images(item, f"recent_{item.id}")
 
 
 def render_search_page():
@@ -167,19 +244,41 @@ def render_search_page():
             st.warning("질문을 입력해 주세요.")
         else:
             results = semantic_search(query, items, limit=3) if items else []
-            st.markdown("## AI 답변")
+            if results:
+                st.session_state[SEARCH_RESPONSE_KEY] = {
+                    "kind": "knowledge",
+                    "results": [{"score": score, "id": str(item.id)} for score, item in results],
+                }
+            else:
+                with st.spinner("일반 AI 답변을 생성하는 중입니다."):
+                    general_answer = answer_general_question(query)
+                st.session_state[SEARCH_RESPONSE_KEY] = {
+                    "kind": "general",
+                    "text": general_answer.text,
+                    "model": general_answer.model,
+                }
+
+    response = st.session_state.get(SEARCH_RESPONSE_KEY)
+    if response:
+        st.markdown("## AI 답변")
+        if response.get("kind") == "knowledge":
+            items_by_id = {str(item.id): item for item in items}
+            results = [
+                (result["score"], items_by_id[result["id"]])
+                for result in response.get("results", [])
+                if result.get("id") in items_by_id
+            ]
             st.write(answer_intro(results))
             if results:
                 st.markdown("## 관련 기술 지식")
                 for rank, (score, item) in enumerate(results):
                     knowledge_card(item, score, rank)
-            else:
-                with st.spinner("일반 AI 답변을 생성하는 중입니다."):
-                    general_answer = answer_general_question(query)
-                    st.markdown(general_answer.text)
-                    if general_answer.model:
-                        st.caption(f"사용 모델: {general_answer.model}")
-            st.markdown(f'<div class="notice"><b>주의사항</b><br>{safe(DISCLAIMER)}</div>', unsafe_allow_html=True)
+                    render_knowledge_images(item, f"search_{item.id}")
+        else:
+            st.markdown(response.get("text") or "")
+            if response.get("model"):
+                st.caption(f"사용 모델: {response['model']}")
+        st.markdown(f'<div class="notice"><b>주의사항</b><br>{safe(DISCLAIMER)}</div>', unsafe_allow_html=True)
 
     render_recent(items)
 
@@ -190,15 +289,21 @@ def render_knowledge_management():
 
     with st.expander("신규 기술 지식 등록", expanded=False):
         with st.form("new_knowledge", clear_on_submit=True):
-            data = knowledge_fields("new")
+            data, uploads, _ = knowledge_fields("new")
             submitted = st.form_submit_button("등록", type="primary")
             if submitted:
                 if not valid_knowledge(data):
                     st.error("제목, 상황, 조치, 주의사항을 모두 입력해 주세요.")
                 else:
-                    db.add_knowledge_item(data, save_embedding(data))
-                    st.success("기술 지식이 등록되었습니다.")
-                    st.rerun()
+                    try:
+                        add_knowledge(data, uploads)
+                        st.success("기술 지식이 등록되었습니다.")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    except Exception:
+                        logging.exception("Failed to add knowledge with images")
+                        st.error("사진 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
 
     items = db.list_knowledge_items()
     title_query = st.text_input("제목 검색", placeholder="찾고 싶은 제목 일부를 입력하세요.")
@@ -219,19 +324,27 @@ def render_knowledge_management():
             <div><b>조치</b><br>{safe(short(item.action, 120))}</div>
             <div><b>주의사항</b><br>{safe(short(item.caution, 120))}</div>
             </div>""", unsafe_allow_html=True)
+            render_knowledge_images(item, f"manage_{item.id}")
             st.markdown("#### 전체 내용 및 수정")
             with st.form(f"edit_{item.id}"):
-                data = knowledge_fields(f"edit_{item.id}", item)
+                data, uploads, removed_paths = knowledge_fields(f"edit_{item.id}", item)
                 save = st.form_submit_button("수정 저장")
                 if save:
                     if not valid_knowledge(data):
                         st.error("제목, 상황, 조치, 주의사항을 모두 입력해 주세요.")
                     else:
-                        db.update_knowledge_item(item.id, data, save_embedding(data))
-                        st.success("기술 지식이 수정되었습니다.")
-                        st.rerun()
+                        try:
+                            update_knowledge(item, data, uploads, removed_paths)
+                            st.success("기술 지식이 수정되었습니다.")
+                            st.rerun()
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        except Exception:
+                            logging.exception("Failed to update knowledge with images")
+                            st.error("사진 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
             if st.button("삭제", key=f"delete_{item.id}"):
                 db.delete_knowledge_item(item.id)
+                image_storage.delete_images(item.images)
                 st.rerun()
 
 
@@ -244,13 +357,13 @@ def render_system_info():
 방송기술 업무 중 발생하는 문제 해결 경험과 작업 노하우를 간단히 축적하고, 필요할 때 AI에게 질문하여 과거 인수인계 내용을 즉시 찾아보는 시스템입니다.
 
 **데이터 구조**<br>
-사용자에게 보이는 기술 지식은 `제목`, `상황`, `조치`, `주의사항` 네 가지 핵심 항목으로 구성됩니다.
+사용자에게 보이는 기술 지식은 `제목`, `상황`, `조치`, `주의사항` 네 가지 핵심 항목과 선택형 첨부 사진 최대 2장으로 구성됩니다.
 
 **검색 모드**<br>
 OpenAI API 키와 임베딩이 있으면 OpenAI 의미 검색을 사용하며, 그렇지 않으면 개인정보를 외부로 보내지 않는 로컬 유사도 검색으로 자동 전환합니다.
 
 **데이터 저장**  
-Cloud Run에서는 기술 지식이 Firestore에 저장됩니다. 로컬 실행 시에는 `spotv_trouble.db`를 사용합니다.
+Cloud Run에서는 기술 지식이 Firestore에, 첨부 사진이 비공개 Cloud Storage에 저장됩니다. 로컬 실행 시에는 `spotv_trouble.db`와 `.data` 폴더를 사용합니다.
 
 **보안**  
 API 키와 비밀번호는 환경변수 또는 Secret Manager에서만 읽으며 코드와 DB에는 저장하지 않습니다.""")

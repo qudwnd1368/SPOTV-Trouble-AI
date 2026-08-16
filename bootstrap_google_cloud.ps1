@@ -12,7 +12,7 @@ if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
 }
 
 gcloud config set project $ProjectId
-gcloud services enable run.googleapis.com firestore.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iam.googleapis.com
+gcloud services enable run.googleapis.com firestore.googleapis.com storage.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com iam.googleapis.com
 
 $serviceAccountName = "$ServiceName-runtime"
 $serviceAccountEmail = "$serviceAccountName@$ProjectId.iam.gserviceaccount.com"
@@ -22,6 +22,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 gcloud projects add-iam-policy-binding $ProjectId --member "serviceAccount:$serviceAccountEmail" --role "roles/datastore.user" --quiet
+
+$imageBucketName = "$ProjectId-spotv-tech-copilot"
+gcloud storage buckets describe "gs://$imageBucketName" --project $ProjectId 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    gcloud storage buckets create "gs://$imageBucketName" --project $ProjectId --location $Region --uniform-bucket-level-access --public-access-prevention
+}
+gcloud storage buckets update "gs://$imageBucketName" --uniform-bucket-level-access --public-access-prevention | Out-Null
+gcloud storage buckets add-iam-policy-binding "gs://$imageBucketName" --member "serviceAccount:$serviceAccountEmail" --role "roles/storage.objectUser" --quiet | Out-Null
 
 $databaseExists = gcloud firestore databases describe --database "(default)" --project $ProjectId 2>$null
 if ($LASTEXITCODE -ne 0) {
@@ -38,7 +46,7 @@ gcloud run deploy $ServiceName `
     --cpu 1 `
     --min 0 `
     --max 2 `
-    --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=false"
+    --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=false,IMAGE_BUCKET_NAME=$imageBucketName,IMAGE_OBJECT_PREFIX=SPOTV Tech Copilot/knowledge"
 
 $serviceUrl = gcloud run services describe $ServiceName --project $ProjectId --region $Region --format "value(status.url)"
 Write-Host "Private bootstrap deployment complete." -ForegroundColor Green
