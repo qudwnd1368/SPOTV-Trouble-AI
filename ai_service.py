@@ -9,7 +9,7 @@ DISCLAIMER = "AI 답변은 참고 정보입니다. 실제 작업 전 장비 모�
 NO_MATCH_MESSAGE = "현재 등록된 기술 지식에서는 관련 사례를 찾지 못했습니다. 일반 AI 답변으로 안내합니다."
 FOUND_MESSAGE = "관련된 과거 기술 지식을 찾았습니다."
 NO_AI_CONFIG_MESSAGE = "일반 AI 답변을 사용하려면 OPENAI_API_KEY 환경변수가 필요합니다."
-DEFAULT_CHAT_MODELS = ("gpt-4.1-mini", "gpt-4o-mini")
+DEFAULT_CHAT_MODELS = ("gpt-5.6-luna", "gpt-4o-mini")
 
 
 def answer_intro(matches):
