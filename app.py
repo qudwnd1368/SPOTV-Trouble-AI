@@ -2,7 +2,6 @@ import html
 import hmac
 import logging
 import os
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -10,19 +9,24 @@ import streamlit as st
 from dotenv import load_dotenv
 
 import storage as db
-from ai_service import DISCLAIMER, analyze
-from search import create_embedding, is_ambiguous, relevance_label, semantic_search
+from ai_service import DISCLAIMER, answer_intro
+from search import create_knowledge_embedding, relevance_label, semantic_search
 from styles import CSS
+
+APP_NAME = "SPOTV Tech Copilot"
+APP_SUBTITLE = "AI 기반 방송기술 지식 · 인수인계 지원 시스템"
+PROTECTED_PAGES = {"기술 지식 관리", "시스템 정보"}
 
 load_dotenv()
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO").upper(),
     format="%(levelname)s:%(name)s:%(message)s",
 )
-st.set_page_config(page_title="SPOTV Trouble AI", page_icon="📡", layout="wide", initial_sidebar_state="expanded")
+
+st.set_page_config(page_title=APP_NAME, page_icon="📡", layout="wide", initial_sidebar_state="expanded")
 st.markdown(CSS, unsafe_allow_html=True)
+
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
-PROTECTED_PAGES = {"장애이력 관리", "새 장애 등록", "시스템 정보"}
 GOOGLE_LOGIN_ENABLED = os.getenv("ENABLE_GOOGLE_LOGIN", "false").lower() == "true"
 ALLOWED_EMAILS = {
     email.strip().lower()
@@ -32,11 +36,20 @@ ALLOWED_EMAILS = {
 }
 
 
+def safe(value):
+    return html.escape(str(value or ""))
+
+
+def short(value, limit=90):
+    text = str(value or "").strip()
+    return text if len(text) <= limit else text[:limit].rstrip() + "..."
+
+
 def require_user_access():
     if not GOOGLE_LOGIN_ENABLED:
         return
     if not st.user.is_logged_in:
-        st.markdown('<div class="lock-card"><div class="lock-icon">🔐</div><h2>SPOTV Trouble AI 로그인</h2><p>등록된 팀원 Google 계정으로 로그인해 주세요.</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="lock-card"><div class="lock-icon">🔐</div><h2>{APP_NAME} 로그인</h2><p>등록된 팀원 Google 계정으로 로그인해 주세요.</p></div>', unsafe_allow_html=True)
         _, center, _ = st.columns([1, 1.15, 1])
         with center:
             st.button("Google 계정으로 로그인", type="primary", on_click=st.login, use_container_width=True)
@@ -47,47 +60,6 @@ def require_user_access():
         st.caption(email)
         st.button("다른 계정으로 로그인", on_click=st.logout)
         st.stop()
-
-
-require_user_access()
-db.init_db()
-
-
-def card(item, score, rank):
-    label = html.escape(relevance_label(score, rank))
-    incident_number = html.escape(str(item.incident_number))
-    equipment = html.escape(str(item.equipment))
-    symptom = html.escape(str(item.symptom))
-    cause = html.escape(str(item.cause))
-    action = html.escape(str(item.action))
-    st.markdown(f"""<div class="card"><span class="badge">{label}</span>
-    <h3>사고번호 {incident_number} · {equipment}</h3>
-    <div class="label">증상</div><div class="value">{symptom}</div>
-    <div class="label">원인</div><div class="value">{cause}</div>
-    <div class="label">조치</div><div class="value">{action}</div></div>""", unsafe_allow_html=True)
-
-
-def incident_fields(prefix, item=None):
-    number = st.text_input("사고번호", value=item.incident_number if item else "", key=f"{prefix}_number")
-    occurred = st.text_input("발생일시 (선택)", value=(item.occurred_at or "") if item else "", placeholder="예: 2026-08-12 14:30", key=f"{prefix}_at")
-    equipment = st.text_input("장비", value=item.equipment if item else "", key=f"{prefix}_equipment")
-    symptom = st.text_area("증상", value=item.symptom if item else "", key=f"{prefix}_symptom")
-    cause = st.text_area("원인", value=item.cause if item else "", key=f"{prefix}_cause")
-    action = st.text_area("조치", value=item.action if item else "", key=f"{prefix}_action")
-    notes = st.text_area("비고", value=item.notes if item else "", key=f"{prefix}_notes")
-    return {"incident_number": number, "occurred_at": occurred or None, "equipment": equipment, "symptom": symptom, "cause": cause, "action": action, "notes": notes}
-
-
-def valid(data):
-    return all(data[x].strip() for x in ["incident_number", "equipment", "symptom", "cause", "action"])
-
-
-def sidebar_brand():
-    asset_dir = Path(__file__).with_name("assets")
-    logo = next((path for name in ["sidebar_logo.svg", "sidebar_logo.png", "sidebar_logo.jpg", "sidebar_logo.jpeg", "sidebar_logo.webp"] if (path := asset_dir / name).exists()), None)
-    if logo:
-        st.image(str(logo), use_container_width=True)
-    st.markdown("### SPOTV Trouble AI")
 
 
 def require_admin_access():
@@ -111,17 +83,170 @@ def require_admin_access():
     return False
 
 
+def sidebar_brand():
+    asset_dir = Path(__file__).with_name("assets")
+    logo = next((path for name in ["sidebar_logo.svg", "sidebar_logo.png", "sidebar_logo.jpg", "sidebar_logo.jpeg", "sidebar_logo.webp"] if (path := asset_dir / name).exists()), None)
+    if logo:
+        st.image(str(logo), use_container_width=True)
+    st.markdown(f"### {APP_NAME}")
+    st.caption(APP_SUBTITLE)
+
+
+def knowledge_card(item, score=None, rank=0):
+    badge = relevance_label(score, rank) if score is not None else "기술 지식"
+    st.markdown(f"""<div class="card knowledge-card"><span class="badge">{safe(badge)}</span>
+    <h3>{safe(item.title)}</h3>
+    <div class="label">상황</div><div class="value">{safe(item.context)}</div>
+    <div class="label">조치</div><div class="value">{safe(item.action)}</div>
+    <div class="label">주의사항</div><div class="value">{safe(item.caution)}</div></div>""", unsafe_allow_html=True)
+
+
+def knowledge_fields(prefix, item=None):
+    title = st.text_input("제목", value=item.title if item else "", placeholder="예: vMix VCR 재생 멈춤", key=f"{prefix}_title")
+    context = st.text_area("상황", value=item.context if item else "", placeholder="어떤 상황에서 문제가 발생했거나 작업이 필요한지 적어주세요.", key=f"{prefix}_context")
+    action = st.text_area("조치", value=item.action if item else "", placeholder="실제로 해결했거나 작업했던 방법을 적어주세요.", key=f"{prefix}_action")
+    caution = st.text_area("주의사항", value=item.caution if item else "", placeholder="다시 발생했을 때 반드시 알아야 할 내용을 적어주세요.", key=f"{prefix}_caution")
+    return {"title": title, "context": context, "action": action, "caution": caution}
+
+
+def valid_knowledge(data):
+    return all(data[key].strip() for key in ["title", "context", "action", "caution"])
+
+
+def save_embedding(data):
+    return create_knowledge_embedding(data)
+
+
+def render_recent(items):
+    st.markdown("## 최근 기술 지식")
+    if not items:
+        st.info("아직 등록된 기술 지식이 없습니다.")
+        return
+    for item in items[:5]:
+        with st.expander(item.title):
+            st.markdown(f"**상황**  \n{item.context}")
+            st.markdown(f"**조치**  \n{item.action}")
+            st.markdown(f"**주의사항**  \n{item.caution}")
+
+
+def render_search_page():
+    st.markdown(f'<div class="hero"><div class="kicker">{safe(APP_SUBTITLE)}</div><h1>{safe(APP_NAME)}</h1><p class="sub">방송기술 업무 중 궁금한 내용을 질문하세요.</p></div>', unsafe_allow_html=True)
+    items = db.list_knowledge_items()
+    total, _, updated = db.stats()
+    cols = st.columns(2)
+    updated_label = "오늘" if updated[:10] == datetime.now().strftime("%Y-%m-%d") else updated[:10]
+    for col, label, value in zip(cols, ["등록 기술 지식", "최근 업데이트"], [total, updated_label]):
+        col.markdown(f'<div class="metric"><span>{label}</span><strong>{safe(value)}</strong></div>', unsafe_allow_html=True)
+
+    st.write("")
+    with st.form("knowledge_search", border=False):
+        left, right = st.columns([5, 1])
+        with left:
+            query = st.text_input("질문", key="query", placeholder="예: vMix에서 다음 영상으로 넘어갈 때 멈추는데 버튼을 빠르게 눌렀던 것 같아.", label_visibility="collapsed")
+        with right:
+            submitted = st.form_submit_button("질문하기", type="primary", use_container_width=True)
+
+    if submitted:
+        if not query.strip():
+            st.warning("질문을 입력해 주세요.")
+        else:
+            results = semantic_search(query, items, limit=3) if items else []
+            st.markdown("## AI 답변")
+            st.write(answer_intro(results))
+            if results:
+                st.markdown("## 관련 기술 지식")
+                for rank, (score, item) in enumerate(results):
+                    knowledge_card(item, score, rank)
+            st.markdown(f'<div class="notice"><b>주의사항</b><br>{safe(DISCLAIMER)}</div>', unsafe_allow_html=True)
+
+    render_recent(items)
+
+
+def render_knowledge_management():
+    st.title("기술 지식 관리")
+    st.caption("방송기술 업무 중 발생한 문제 해결 경험, 장비 작업 방법, 주의사항, 인수인계 노하우를 관리합니다.")
+
+    with st.expander("신규 기술 지식 등록", expanded=False):
+        with st.form("new_knowledge", clear_on_submit=True):
+            data = knowledge_fields("new")
+            submitted = st.form_submit_button("등록", type="primary")
+            if submitted:
+                if not valid_knowledge(data):
+                    st.error("제목, 상황, 조치, 주의사항을 모두 입력해 주세요.")
+                else:
+                    db.add_knowledge_item(data, save_embedding(data))
+                    st.success("기술 지식이 등록되었습니다.")
+                    st.rerun()
+
+    items = db.list_knowledge_items()
+    title_query = st.text_input("제목 검색", placeholder="찾고 싶은 제목 일부를 입력하세요.")
+    if title_query.strip():
+        needle = title_query.strip().lower()
+        items = [item for item in items if needle in item.title.lower()]
+
+    st.markdown("### 기술 지식 목록")
+    if not items:
+        st.info("표시할 기술 지식이 없습니다.")
+        return
+
+    for item in items:
+        with st.expander(item.title):
+            st.markdown(f"""<div class="table-card">
+            <div><b>제목</b><br>{safe(item.title)}</div>
+            <div><b>상황</b><br>{safe(short(item.context, 120))}</div>
+            <div><b>조치</b><br>{safe(short(item.action, 120))}</div>
+            <div><b>주의사항</b><br>{safe(short(item.caution, 120))}</div>
+            </div>""", unsafe_allow_html=True)
+            st.markdown("#### 전체 내용 및 수정")
+            with st.form(f"edit_{item.id}"):
+                data = knowledge_fields(f"edit_{item.id}", item)
+                save = st.form_submit_button("수정 저장")
+                if save:
+                    if not valid_knowledge(data):
+                        st.error("제목, 상황, 조치, 주의사항을 모두 입력해 주세요.")
+                    else:
+                        db.update_knowledge_item(item.id, data, save_embedding(data))
+                        st.success("기술 지식이 수정되었습니다.")
+                        st.rerun()
+            if st.button("삭제", key=f"delete_{item.id}"):
+                db.delete_knowledge_item(item.id)
+                st.rerun()
+
+
+def render_system_info():
+    st.title("시스템 정보")
+    st.markdown(f"""**프로젝트명**<br>
+{APP_NAME}
+
+**목적**<br>
+방송기술 업무 중 발생하는 문제 해결 경험과 작업 노하우를 간단히 축적하고, 필요할 때 AI에게 질문하여 과거 인수인계 내용을 즉시 찾아보는 시스템입니다.
+
+**데이터 구조**<br>
+사용자에게 보이는 기술 지식은 `제목`, `상황`, `조치`, `주의사항` 네 가지 핵심 항목으로 구성됩니다.
+
+**검색 모드**<br>
+OpenAI API 키와 임베딩이 있으면 OpenAI 의미 검색을 사용하며, 그렇지 않으면 개인정보를 외부로 보내지 않는 로컬 유사도 검색으로 자동 전환합니다.
+
+**데이터 저장**  
+Cloud Run에서는 기술 지식이 Firestore에 저장됩니다. 로컬 실행 시에는 `spotv_trouble.db`를 사용합니다.
+
+**보안**  
+API 키와 비밀번호는 환경변수 또는 Secret Manager에서만 읽으며 코드와 DB에는 저장하지 않습니다.""")
+
+
+require_user_access()
+db.init_db()
+
 with st.sidebar:
     sidebar_brand()
     if GOOGLE_LOGIN_ENABLED and st.user.is_logged_in:
         st.caption(f"👤 {getattr(st.user, 'email', '')}")
     page = st.radio(
         "메뉴",
-        ["AI 장애 검색", "장애이력 관리", "새 장애 등록", "시스템 정보"],
-        key="main_navigation_v2",
+        ["AI 질문", "기술 지식 관리", "시스템 정보"],
+        key="main_navigation_v3",
         label_visibility="collapsed",
     )
-    st.caption("Broadcast Engineering Knowledge System")
     if st.session_state.get("admin_authenticated") and st.button("관리자 로그아웃"):
         st.session_state.admin_authenticated = False
         st.rerun()
@@ -131,81 +256,9 @@ with st.sidebar:
 if page in PROTECTED_PAGES and not require_admin_access():
     st.stop()
 
-if page == "AI 장애 검색":
-    st.markdown('<div class="hero"><div class="kicker">AI-powered Broadcast Engineering Knowledge System</div><h1>SPOTV Trouble AI</h1><p class="sub">과거 장애이력을 기반으로 방송 시스템 문제 해결을 지원합니다.</p></div>', unsafe_allow_html=True)
-    total, _, updated = db.stats()
-    cols = st.columns(2)
-    for col, label, value in zip(cols, ["등록 장애", "최근 업데이트"], [total, "오늘" if updated[:10] == datetime.now().strftime("%Y-%m-%d") else updated[:10]]):
-        col.markdown(f'<div class="metric"><span>{label}</span><strong>{value}</strong></div>', unsafe_allow_html=True)
-    st.write("")
-    with st.form("incident_search", border=False):
-        query = st.text_input("현장 증상을 입력하세요", key="query", placeholder="예: EVS 입력이 안 들어와 / vMix 버튼이 반응 안 함", label_visibility="collapsed")
-        search_submitted = st.form_submit_button("AI 장애 분석", type="primary")
-    if search_submitted:
-        if not query.strip():
-            st.warning("증상을 입력해 주세요.")
-        else:
-            incidents = db.list_incidents()
-            results = semantic_search(query, incidents) if incidents else []
-            if is_ambiguous(query):
-                st.markdown('<div class="notice"><b>현재 증상만으로는 범위가 넓습니다.</b><br>입력 신호, 출력, 녹화·재생, 오디오 중 어느 문제인지 함께 입력하면 더 정확하게 찾을 수 있습니다.</div>', unsafe_allow_html=True)
-            top = results[0][1] if results else None
-            if results:
-                score, top = results[0]
-                st.markdown("## 가장 유사한 과거 사례")
-                card(top, score, 0)
-            related_results = results[1:] if results else []
-            analysis, checks = analyze(query, top)
-            st.markdown("## AI 분석")
-            st.write(analysis)
-            st.markdown("### 우선 점검 권장사항")
-            for idx, check in enumerate(checks, 1): st.write(f"{idx}. {check}")
-            st.markdown(f'<div class="notice"><b>주의사항</b><br>{DISCLAIMER}</div>', unsafe_allow_html=True)
-            if related_results:
-                st.markdown("## 관련 과거 사례 TOP 3")
-                for rank, (similarity, item) in enumerate(related_results, 1): card(item, similarity, rank)
-
-elif page == "장애이력 관리":
-    st.title("장애이력 관리")
-    st.caption("등록된 사고를 수정하거나 삭제할 수 있습니다. 수정 시 검색 데이터도 갱신됩니다.")
-    for item in db.list_incidents():
-        with st.expander(f"{item.incident_number} · {item.equipment} · {item.symptom}"):
-            with st.form(f"edit_{item.id}"):
-                data = incident_fields(f"edit_{item.id}", item)
-                save = st.form_submit_button("수정 저장")
-                if save:
-                    if not valid(data): st.error("필수 항목을 모두 입력해 주세요.")
-                    else:
-                        try:
-                            embedding = create_embedding(" ".join([data["equipment"], data["symptom"], data["cause"], data["action"], data["notes"]]))
-                            db.update_incident(item.id, data, embedding)
-                            st.success("장애이력이 수정되었습니다.")
-                            st.rerun()
-                        except (sqlite3.IntegrityError, ValueError) as exc: st.error(str(exc) or "이미 사용 중인 사고번호입니다.")
-            if st.button("삭제", key=f"delete_{item.id}"):
-                db.delete_incident(item.id); st.rerun()
-
-elif page == "새 장애 등록":
-    st.title("새 장애 등록")
-    with st.form("new_incident", clear_on_submit=True):
-        data = incident_fields("new")
-        submitted = st.form_submit_button("장애이력 등록", type="primary")
-        if submitted:
-            if not valid(data): st.error("필수 항목을 모두 입력해 주세요.")
-            else:
-                try:
-                    embedding = create_embedding(" ".join([data["equipment"], data["symptom"], data["cause"], data["action"], data["notes"]]))
-                    db.add_incident(data, embedding)
-                    st.success("장애이력이 정상적으로 등록되었습니다.")
-                except (sqlite3.IntegrityError, ValueError) as exc: st.error(str(exc) or "이미 사용 중인 사고번호입니다.")
-
+if page == "AI 질문":
+    render_search_page()
+elif page == "기술 지식 관리":
+    render_knowledge_management()
 else:
-    st.title("시스템 정보")
-    st.markdown("""**검색 모드**  
-OpenAI API 키와 임베딩이 있으면 OpenAI 의미 검색을 사용하며, 그렇지 않으면 개인정보를 외부로 보내지 않는 로컬 유사도 검색으로 자동 전환합니다.
-
-**데이터 저장**  
-Cloud Run에서는 장애이력이 Firestore에 저장됩니다. 로컬 실행 시에는 `spotv_trouble.db`를 사용합니다.
-
-**보안**  
-API 키는 `.env`에서만 읽으며 코드와 DB에는 저장하지 않습니다.""")
+    render_system_info()

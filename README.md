@@ -1,6 +1,8 @@
-# SPOTV Trouble AI
+# SPOTV Tech Copilot
 
-방송 장애이력을 자연어로 검색하고, 과거 사례를 근거로 안전한 점검 순서를 제안하는 Streamlit MVP입니다.
+AI 기반 방송기술 지식 · 인수인계 지원 시스템입니다.
+
+방송기술 업무 중 발생한 문제 해결 경험, 장비 작업 방법, 기술 노하우, 주의사항을 간단히 축적하고 자연어 질문으로 다시 찾아보는 Streamlit MVP입니다.
 
 ## Windows에서 가장 쉽게 실행하기
 
@@ -18,7 +20,7 @@ powershell -ExecutionPolicy Bypass -File .\setup_windows.ps1
 
 ## OpenAI API 연결 (선택)
 
-API 키가 없어도 로컬 의미 유사도 검색으로 동작합니다. OpenAI 임베딩과 AI 답변을 사용하려면 `.env`를 메모장으로 열고 다음처럼 입력합니다.
+API 키가 없어도 로컬 의미 유사도 검색으로 동작합니다. OpenAI 임베딩 검색을 사용하려면 `.env`를 메모장으로 열고 다음처럼 입력합니다.
 
 ```dotenv
 OPENAI_API_KEY=여기에_본인의_API_키
@@ -34,7 +36,7 @@ API 키를 소스 코드나 GitHub에 올리지 마세요. `.env`는 `.gitignore
 
 ## 관리자 메뉴와 사이드바 이미지
 
-장애이력 관리, 새 장애 등록, 시스템 정보 메뉴는 관리자 비밀번호로 보호됩니다. `.env` 또는 Google Secret Manager의 `ADMIN_PASSWORD` 값을 반드시 설정해야 합니다. 실제 비밀번호는 저장소에 커밋하지 마세요.
+기술 지식 관리, 시스템 정보 메뉴는 관리자 비밀번호로 보호됩니다. `.env` 또는 Google Secret Manager의 `ADMIN_PASSWORD` 값을 반드시 설정해야 합니다. 실제 비밀번호는 저장소에 커밋하지 마세요.
 
 사이드바에 사용할 이미지는 `assets` 폴더를 만들고 `sidebar_logo.png`라는 이름으로 넣으면 자동 표시됩니다. JPG 파일은 `sidebar_logo.jpg`를 사용할 수 있습니다.
 
@@ -55,7 +57,14 @@ Copy-Item .env.example .env
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-초기 실행 시 SQLite DB(`spotv_trouble.db`)와 기본 장애사례 5건이 자동 생성됩니다. 등록·수정·삭제 내용은 즉시 검색 대상에 반영됩니다.
+초기 실행 시 SQLite DB(`spotv_trouble.db`)와 기본 기술 지식 5건이 자동 생성됩니다. 등록·수정·삭제 내용은 즉시 검색 대상에 반영됩니다.
+
+사용자에게 보이는 기술 지식 데이터는 아래 4개 항목으로 단순화되어 있습니다.
+
+- 제목
+- 상황
+- 조치
+- 주의사항
 
 ## 여러 PC에서 작업하기
 
@@ -72,8 +81,8 @@ git pull origin main
 - `app.py`: Streamlit 화면과 사용자 흐름
 - `database.py`: SQLite 스키마와 CRUD
 - `search.py`: OpenAI 임베딩 및 로컬 검색
-- `ai_service.py`: 과거 사례 기반 AI 분석
-- `seed_data.py`: 초기 장애사례 5건
+- `ai_service.py`: 기술 지식 검색 결과 안내 문구
+- `seed_data.py`: 초기 기술 지식 5건
 - `styles.py`: NOC 스타일 UI
 - `setup_windows.ps1`: Windows 자동 설치 및 실행
 
@@ -82,7 +91,7 @@ git pull origin main
 클라우드 배포에서는 다음 구성을 사용합니다.
 
 - Cloud Run: Streamlit 앱 실행
-- Firestore: 장애이력 중앙 저장
+- Firestore: 기술 지식 중앙 저장
 - Google OIDC: 허용된 팀원 Google 계정 로그인
 - Secret Manager: OAuth 비밀키, 관리자 비밀번호 저장
 
@@ -125,7 +134,7 @@ powershell -ExecutionPolicy Bypass -File .\release_google_cloud.ps1 `
 - `GCP_SA_KEY`: Cloud Run 배포 권한이 있는 서비스 계정 JSON 키
 - `ADDITIONAL_ALLOWED_EMAILS`: 추가 접근 허용 이메일 목록. 쉼표 또는 세미콜론으로 구분합니다.
 
-### 기존 로컬 장애이력 이전
+### 기존 로컬 기술 지식 이전
 
 Google Cloud Application Default Credentials를 설정하고 `.env`에 `GOOGLE_CLOUD_PROJECT`를 입력한 뒤 실행합니다.
 
@@ -134,4 +143,4 @@ gcloud auth application-default login
 .\.venv\Scripts\python.exe .\migrate_to_firestore.py
 ```
 
-동일한 사고번호가 이미 있으면 업데이트하고, 없으면 새로 등록합니다.
+동일한 제목이 이미 있으면 업데이트하고, 없으면 새로 등록합니다.

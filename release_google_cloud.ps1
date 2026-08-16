@@ -60,4 +60,4 @@ gcloud run deploy $ServiceName `
     --set-env-vars "DATABASE_BACKEND=firestore,GOOGLE_CLOUD_PROJECT=$ProjectId,ENABLE_GOOGLE_LOGIN=true,APP_URL=$serviceUrl,OAUTH_CLIENT_ID=$OAuthClientId,ALLOWED_EMAILS=$AllowedEmails" `
     --set-secrets "OAUTH_CLIENT_SECRET=spotv-oauth-client-secret:latest,COOKIE_SECRET=spotv-cookie-secret:latest,ADMIN_PASSWORD=spotv-admin-password:latest"
 
-Write-Host "SPOTV Trouble AI is live: $serviceUrl" -ForegroundColor Green
+Write-Host "SPOTV Tech Copilot is live: $serviceUrl" -ForegroundColor Green

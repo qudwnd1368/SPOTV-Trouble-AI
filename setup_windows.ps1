@@ -21,5 +21,5 @@ if (-not (Test-Path ".env")) {
     Write-Host "Created .env. The app works in local search mode without an API key." -ForegroundColor Yellow
 }
 
-Write-Host "Setup complete. Starting SPOTV Trouble AI..." -ForegroundColor Green
+Write-Host "Setup complete. Starting SPOTV Tech Copilot..." -ForegroundColor Green
 & ".venv\Scripts\python.exe" -m streamlit run app.py

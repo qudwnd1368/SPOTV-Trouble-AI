@@ -18,7 +18,7 @@ $serviceAccountName = "$ServiceName-runtime"
 $serviceAccountEmail = "$serviceAccountName@$ProjectId.iam.gserviceaccount.com"
 $existingAccount = gcloud iam service-accounts describe $serviceAccountEmail --project $ProjectId 2>$null
 if ($LASTEXITCODE -ne 0) {
-    gcloud iam service-accounts create $serviceAccountName --project $ProjectId --display-name "SPOTV Trouble AI runtime"
+    gcloud iam service-accounts create $serviceAccountName --project $ProjectId --display-name "SPOTV Tech Copilot runtime"
 }
 
 gcloud projects add-iam-policy-binding $ProjectId --member "serviceAccount:$serviceAccountEmail" --role "roles/datastore.user" --quiet
@@ -45,4 +45,3 @@ Write-Host "Private bootstrap deployment complete." -ForegroundColor Green
 Write-Host "Service URL: $serviceUrl"
 Write-Host "OAuth redirect URI: $serviceUrl/oauth2callback" -ForegroundColor Yellow
 Write-Host "Create a Google OAuth Web client with this redirect URI before public release."
-

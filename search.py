@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import math
@@ -8,6 +7,8 @@ from collections import Counter
 
 
 logger = logging.getLogger(__name__)
+LOCAL_MIN_RELEVANCE_SCORE = float(os.getenv("LOCAL_MIN_RELEVANCE_SCORE", os.getenv("MIN_RELEVANCE_SCORE", "0.08")))
+SEMANTIC_MIN_RELEVANCE_SCORE = float(os.getenv("SEMANTIC_MIN_RELEVANCE_SCORE", "0.35"))
 
 ALIASES = {
     "안먹어": "반응하지않음", "안 먹어": "반응하지않음", "안돼": "불량",
@@ -39,14 +40,14 @@ def cosine(a, b):
     return numerator / denominator if denominator else 0.0
 
 
-def incident_text(item):
-    return f"{item.equipment} {item.symptom} {item.cause} {item.action} {item.notes}"
+def knowledge_text(item):
+    return f"{item.title} {item.context} {item.action} {item.caution}"
 
 
-def local_search(query, incidents, limit=3):
+def local_search(query, items, limit=3):
     q = local_vector(query)
-    scored = [(cosine(q, local_vector(incident_text(item))), item) for item in incidents]
-    return sorted(scored, key=lambda x: x[0], reverse=True)[:limit]
+    scored = [(cosine(q, local_vector(knowledge_text(item))), item) for item in items]
+    return [result for result in sorted(scored, key=lambda x: x[0], reverse=True) if result[0] >= LOCAL_MIN_RELEVANCE_SCORE][:limit]
 
 
 def get_openai_client():
@@ -68,29 +69,30 @@ def create_embedding(text):
         response = client.embeddings.create(model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"), input=text)
         return json.dumps(response.data[0].embedding)
     except Exception:
-        logger.exception("Failed to create OpenAI embedding; saving incident without embedding.")
+        logger.exception("Failed to create OpenAI embedding; saving knowledge item without embedding.")
         return None
 
 
-def semantic_search(query, incidents, limit=3):
+def create_knowledge_embedding(data):
+    return create_embedding(" ".join([data["title"], data["context"], data["action"], data["caution"]]))
+
+
+def semantic_search(query, items, limit=3):
     client = get_openai_client()
-    if client and all(i.embedding for i in incidents):
+    if client and items and all(item.embedding for item in items):
         try:
             q = client.embeddings.create(model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"), input=query).data[0].embedding
             def dense_cos(raw):
                 v = json.loads(raw)
                 return sum(x*y for x, y in zip(q, v)) / (math.sqrt(sum(x*x for x in q))*math.sqrt(sum(y*y for y in v)))
-            return sorted([(dense_cos(i.embedding), i) for i in incidents], key=lambda x: x[0], reverse=True)[:limit]
+            scored = [(dense_cos(item.embedding), item) for item in items]
+            return [result for result in sorted(scored, key=lambda x: x[0], reverse=True) if result[0] >= SEMANTIC_MIN_RELEVANCE_SCORE][:limit]
         except Exception:
             logger.exception("OpenAI semantic search failed; falling back to local search.")
-    return local_search(query, incidents, limit)
+    return local_search(query, items, limit)
 
 
 def relevance_label(score, rank):
     if rank == 0 and score >= 0.30: return "매우 관련 높음"
     if score >= 0.16: return "관련 높음"
     return "참고 가능"
-
-
-def is_ambiguous(query):
-    return len(normalize(query)) <= 6 or not any(word in query.lower() for word in ["입력", "출력", "버튼", "오디오", "소리", "페이더", "화면", "신호", "재생", "녹화", "빨간"])

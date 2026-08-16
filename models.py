@@ -3,15 +3,16 @@ from typing import Optional, Union
 
 
 @dataclass
-class Incident:
+class KnowledgeItem:
     id: Optional[Union[int, str]]
-    incident_number: str
-    occurred_at: Optional[str]
-    equipment: str
-    symptom: str
-    cause: str
+    title: str
+    context: str
     action: str
-    notes: str = ""
+    caution: str
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     embedding: Optional[str] = None
+
+
+# Backward-compatible alias while older storage helpers are phased out.
+Incident = KnowledgeItem
