@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 import storage as db
 import image_storage
+from admin_session import create_admin_token, derive_signing_key, verify_admin_token
 from ai_service import DISCLAIMER, answer_general_question, answer_intro
 from search import create_knowledge_embedding, relevance_label, semantic_search
 from styles import CSS
@@ -23,6 +24,7 @@ PROTECTED_PAGES = {"기술 지식 관리", "시스템 정보"}
 NAV_OPTIONS = ["AI 질문", "기술 지식 관리", "시스템 정보"]
 NAV_KEY = "main_navigation_v3"
 SEARCH_RESPONSE_KEY = "knowledge_search_response_v1"
+ADMIN_COOKIE_NAME = "spotv_tech_copilot_admin"
 
 load_dotenv()
 logging.basicConfig(
@@ -41,6 +43,23 @@ ALLOWED_EMAILS = {
     for email in source.replace(";", ",").split(",")
     if email.strip()
 }
+ADMIN_SIGNING_KEY = derive_signing_key(os.getenv("COOKIE_SECRET", ""), ADMIN_PASSWORD)
+
+ADMIN_COOKIE_BRIDGE = st.components.v2.component(
+    "admin_session_cookie_bridge",
+    html="<span aria-hidden=\"true\"></span>",
+    js="""
+        export default function({ data }) {
+            const secure = window.location.protocol === "https:" ? "; Secure" : "";
+            if (data.action === "set" && data.token) {
+                document.cookie = `${data.name}=${data.token}; Path=/; SameSite=Strict${secure}`;
+            } else if (data.action === "clear") {
+                document.cookie = `${data.name}=; Path=/; SameSite=Strict; Max-Age=0${secure}`;
+            }
+        }
+    """,
+    isolate_styles=True,
+)
 
 
 def safe(value):
@@ -69,6 +88,33 @@ def require_user_access():
         st.stop()
 
 
+def admin_subject():
+    if GOOGLE_LOGIN_ENABLED:
+        return str(getattr(st.user, "email", "")).strip().lower()
+    return "local-admin"
+
+
+def sync_admin_session():
+    action = st.session_state.pop("_admin_cookie_action", "")
+    token_to_set = st.session_state.pop("_admin_cookie_token", "")
+    ADMIN_COOKIE_BRIDGE(
+        key="admin_session_cookie_bridge",
+        data={"action": action, "name": ADMIN_COOKIE_NAME, "token": token_to_set},
+        height=0,
+    )
+    if st.session_state.get("admin_authenticated") or st.session_state.get("_admin_cookie_revoked"):
+        return
+    token = st.context.cookies.get(ADMIN_COOKIE_NAME, "")
+    if verify_admin_token(token, admin_subject(), ADMIN_SIGNING_KEY):
+        st.session_state.admin_authenticated = True
+
+
+def log_out_admin():
+    st.session_state.admin_authenticated = False
+    st.session_state._admin_cookie_revoked = True
+    st.session_state._admin_cookie_action = "clear"
+
+
 def require_admin_access():
     if st.session_state.get("admin_authenticated"):
         return True
@@ -84,6 +130,9 @@ def require_admin_access():
         if submitted:
             if hmac.compare_digest(password, ADMIN_PASSWORD):
                 st.session_state.admin_authenticated = True
+                st.session_state._admin_cookie_revoked = False
+                st.session_state._admin_cookie_action = "set"
+                st.session_state._admin_cookie_token = create_admin_token(admin_subject(), ADMIN_SIGNING_KEY)
                 st.rerun()
             else:
                 st.error("비밀번호가 올바르지 않습니다.")
@@ -120,9 +169,9 @@ def knowledge_card(item, score=None, rank=0):
 
 
 def knowledge_fields(prefix, item=None):
-    title = st.text_input("제목 :red[필수입력]", value=item.title if item else "", placeholder="예: vMix VCR 재생 멈춤", key=f"{prefix}_title")
-    context = st.text_area("상황 :red[필수입력]", value=item.context if item else "", placeholder="어떤 상황에서 문제가 발생했거나 작업이 필요한지 적어주세요.", key=f"{prefix}_context")
-    action = st.text_area("조치 :red[필수입력]", value=item.action if item else "", placeholder="실제로 해결했거나 작업했던 방법을 적어주세요.", key=f"{prefix}_action")
+    title = st.text_input("제목 :red[(필수입력)]", value=item.title if item else "", placeholder="예: vMix VCR 재생 멈춤", key=f"{prefix}_title")
+    context = st.text_area("상황 :red[(필수입력)]", value=item.context if item else "", placeholder="어떤 상황에서 문제가 발생했거나 작업이 필요한지 적어주세요.", key=f"{prefix}_context")
+    action = st.text_area("조치 :red[(필수입력)]", value=item.action if item else "", placeholder="실제로 해결했거나 작업했던 방법을 적어주세요.", key=f"{prefix}_action")
     caution = st.text_area("주의사항", value=item.caution if item else "", placeholder="다시 발생했을 때 반드시 알아야 할 내용을 적어주세요.", key=f"{prefix}_caution")
     uploads = st.file_uploader(
         "사진 첨부 (선택, 최대 2장)",
@@ -369,6 +418,7 @@ API 키와 비밀번호는 환경변수 또는 Secret Manager에서만 읽으며
 
 
 require_user_access()
+sync_admin_session()
 db.init_db()
 
 query_page = st.query_params.get("page")
@@ -393,9 +443,8 @@ with st.sidebar:
         label_visibility="collapsed",
         on_change=sync_navigation_query,
     )
-    if st.session_state.get("admin_authenticated") and st.button("관리자 로그아웃"):
-        st.session_state.admin_authenticated = False
-        st.rerun()
+    if st.session_state.get("admin_authenticated"):
+        st.button("관리자 로그아웃", on_click=log_out_admin)
     if GOOGLE_LOGIN_ENABLED and st.user.is_logged_in:
         st.button("Google 로그아웃", on_click=st.logout)
 

@@ -18,6 +18,7 @@ h1,h2,h3,p,label{font-family:Inter,"Noto Sans KR",sans-serif;color:var(--text)}.
 .knowledge-card .value{line-height:1.65}.table-card{display:grid;grid-template-columns:1.1fr 1.5fr 1.5fr 1.4fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:.6rem 0 1rem}.table-card>div{background:#fff;padding:.75rem;line-height:1.5;font-size:.92rem}.table-card b{color:var(--accent2)}
 .lock-card{text-align:center;max-width:570px;margin:4.5rem auto 1.3rem}.lock-icon{font-size:2.2rem}.lock-card h2{margin:.5rem 0}.lock-card p{color:var(--muted)}
 .stTextInput input,.stTextArea textarea{background:#fff!important;border:1px solid #cbdbe5!important;color:#17313e!important;border-radius:12px!important;box-shadow:0 2px 8px rgba(30,67,84,.03)}
+.stTextInput [data-testid="stWidgetLabel"] p span,.stTextArea [data-testid="stWidgetLabel"] p span{font-size:.76em!important;font-weight:700!important}
 .stTextInput input{min-height:3.4rem;font-size:1.05rem}.stButton>button{border-radius:11px;border:1px solid #b6d1d8;background:#eef7f8;color:#175562;width:100%;font-weight:750}.stButton>button:hover{border-color:var(--accent);color:var(--accent2);background:#e3f3f3}
 .stButton>button[kind="primary"]{background:var(--accent);border-color:var(--accent);color:#fff}.stButton>button[kind="primary"]:hover{background:var(--accent2);color:#fff}
 div[data-testid="stForm"]{background:rgba(255,255,255,.86);border:1px solid var(--line);border-radius:18px;padding:1.25rem}
