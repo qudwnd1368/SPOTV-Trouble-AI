@@ -40,6 +40,11 @@ def test_general_ai_answer_requires_api_key(monkeypatch):
     assert "OPENAI_API_KEY" in answer
 
 
+def test_candidate_models_prefers_configured_model(monkeypatch):
+    monkeypatch.setenv("OPENAI_CHAT_MODEL", "custom-model")
+    assert tuple(ai_service._candidate_models()) == ("custom-model", "gpt-4.1-mini", "gpt-4o-mini")
+
+
 def test_equipment_title_match_ranks_first():
     items = [
         KnowledgeItem(
