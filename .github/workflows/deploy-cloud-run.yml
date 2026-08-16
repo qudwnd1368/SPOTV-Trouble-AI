@@ -38,6 +38,7 @@ jobs:
     needs: test
     env:
       ADDITIONAL_ALLOWED_EMAILS: ${{ secrets.ADDITIONAL_ALLOWED_EMAILS }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,6 +57,6 @@ jobs:
             --source . \
             --project "${{ secrets.GCP_PROJECT_ID }}" \
             --region "$REGION" \
-            --update-env-vars "ADDITIONAL_ALLOWED_EMAILS=$ADDITIONAL_ALLOWED_EMAILS" \
+            --update-env-vars "ADDITIONAL_ALLOWED_EMAILS=$ADDITIONAL_ALLOWED_EMAILS,OPENAI_API_KEY=$OPENAI_API_KEY" \
             --allow-unauthenticated \
             --quiet
