@@ -1,5 +1,6 @@
 import logging
 import os
+from dataclasses import dataclass
 from typing import Iterable
 
 
@@ -12,6 +13,13 @@ NO_AI_CONFIG_MESSAGE = "일반 AI 답변을 사용하려면 OPENAI_API_KEY 환�
 DEFAULT_CHAT_MODELS = ("gpt-5.6-luna", "gpt-4o-mini")
 
 
+@dataclass(frozen=True)
+class GeneralAnswer:
+    text: str
+    model: str = ""
+    ok: bool = False
+
+
 def answer_intro(matches):
     return FOUND_MESSAGE if matches else NO_MATCH_MESSAGE
 
@@ -19,7 +27,7 @@ def answer_intro(matches):
 def answer_general_question(query):
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
-        return NO_AI_CONFIG_MESSAGE
+        return GeneralAnswer(NO_AI_CONFIG_MESSAGE)
     try:
         from openai import OpenAI
         from openai import APIConnectionError, AuthenticationError, BadRequestError, PermissionDeniedError, RateLimitError
@@ -41,24 +49,25 @@ def answer_general_question(query):
         for model in _candidate_models():
             try:
                 response = client.responses.create(model=model, input=prompt)
-                return response.output_text.strip() or "일반 AI 답변을 생성하지 못했습니다."
+                text = response.output_text.strip() or "일반 AI 답변을 생성하지 못했습니다."
+                return GeneralAnswer(text=text, model=model, ok=bool(response.output_text.strip()))
             except BadRequestError as exc:
                 last_error = exc
                 logger.warning("OpenAI model request failed for %s: %s", model, exc)
                 continue
         if last_error:
-            return "일반 AI 답변 생성에 실패했습니다. OPENAI_CHAT_MODEL 설정 또는 사용 가능한 OpenAI 모델 권한을 확인해 주세요."
+            return GeneralAnswer("일반 AI 답변 생성에 실패했습니다. OPENAI_CHAT_MODEL 설정 또는 사용 가능한 OpenAI 모델 권한을 확인해 주세요.")
     except AuthenticationError:
-        return "OpenAI API 키 인증에 실패했습니다. GitHub Secret의 OPENAI_API_KEY 값이 올바른지 확인해 주세요."
+        return GeneralAnswer("OpenAI API 키 인증에 실패했습니다. GitHub Secret의 OPENAI_API_KEY 값이 올바른지 확인해 주세요.")
     except PermissionDeniedError:
-        return "OpenAI API 키 권한이 부족합니다. 해당 키가 API 사용 권한이 있는 프로젝트에서 생성됐는지 확인해 주세요."
+        return GeneralAnswer("OpenAI API 키 권한이 부족합니다. 해당 키가 API 사용 권한이 있는 프로젝트에서 생성됐는지 확인해 주세요.")
     except RateLimitError:
-        return "OpenAI API 사용 한도 또는 결제 상태 때문에 답변을 생성하지 못했습니다. OpenAI 결제/사용량 한도를 확인해 주세요."
+        return GeneralAnswer("OpenAI API 사용 한도 또는 결제 상태 때문에 답변을 생성하지 못했습니다. OpenAI 결제/사용량 한도를 확인해 주세요.")
     except APIConnectionError:
-        return "OpenAI 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요."
+        return GeneralAnswer("OpenAI 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.")
     except Exception:
         logger.exception("General AI answer failed.")
-        return "일반 AI 답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
+        return GeneralAnswer("일반 AI 답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.")
 
 
 def _candidate_models() -> Iterable[str]:

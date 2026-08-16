@@ -37,12 +37,21 @@ def test_unknown_broadcast_equipment_question_returns_no_matches(tmp_path):
 def test_general_ai_answer_requires_api_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     answer = ai_service.answer_general_question("mvs3000 스위처 pip 어떻게 설정해?")
-    assert "OPENAI_API_KEY" in answer
+    assert "OPENAI_API_KEY" in answer.text
+    assert answer.model == ""
+    assert not answer.ok
 
 
 def test_candidate_models_prefers_configured_model(monkeypatch):
     monkeypatch.setenv("OPENAI_CHAT_MODEL", "custom-model")
     assert tuple(ai_service._candidate_models()) == ("custom-model", "gpt-5.6-luna", "gpt-4o-mini")
+
+
+def test_general_answer_includes_model_name():
+    answer = ai_service.GeneralAnswer(text="답변", model="gpt-5.6-luna", ok=True)
+    assert answer.text == "답변"
+    assert answer.model == "gpt-5.6-luna"
+    assert answer.ok
 
 
 def test_equipment_title_match_ranks_first():

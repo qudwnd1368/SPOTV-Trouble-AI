@@ -175,7 +175,10 @@ def render_search_page():
                     knowledge_card(item, score, rank)
             else:
                 with st.spinner("일반 AI 답변을 생성하는 중입니다."):
-                    st.markdown(answer_general_question(query))
+                    general_answer = answer_general_question(query)
+                    st.markdown(general_answer.text)
+                    if general_answer.model:
+                        st.caption(f"사용 모델: {general_answer.model}")
             st.markdown(f'<div class="notice"><b>주의사항</b><br>{safe(DISCLAIMER)}</div>', unsafe_allow_html=True)
 
     render_recent(items)
