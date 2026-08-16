@@ -13,6 +13,7 @@ SEMANTIC_MIN_RELEVANCE_SCORE = float(os.getenv("SEMANTIC_MIN_RELEVANCE_SCORE", "
 ALIASES = {
     "안먹어": "반응하지않음", "안 먹어": "반응하지않음", "안돼": "불량",
     "안 돼": "불량", "안나와": "출력불량", "안 나와": "출력불량",
+    "안나옴": "출력불량", "안 나옴": "출력불량", "안나온": "출력불량",
     "인풋": "입력", "input": "입력", "신호없어": "입력불량", "신호 없어": "입력불량",
     "화면": "영상", "첫화면": "첫프레임", "vcr": "소재", "소리": "오디오",
     "계속나가": "송출", "계속 나가": "송출", "빨간 불": "빨간불",
@@ -20,10 +21,15 @@ ALIASES = {
 }
 
 
-def normalize(text):
+def canonical_text(text):
     value = text.lower().strip()
-    for old, new in ALIASES.items():
+    for old, new in sorted(ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
         value = value.replace(old, new)
+    return value
+
+
+def normalize(text):
+    value = canonical_text(text)
     return re.sub(r"[^0-9a-z가-힣]+", "", value)
 
 
@@ -44,9 +50,38 @@ def knowledge_text(item):
     return f"{item.title} {item.context} {item.action} {item.caution}"
 
 
-def local_search(query, items, limit=3):
+def keywords(text):
+    return {
+        normalized
+        for token in re.findall(r"[0-9a-z가-힣]+", canonical_text(text))
+        if len(normalized := normalize(token)) >= 2
+    }
+
+
+def lexical_score(query, item):
     q = local_vector(query)
-    scored = [(cosine(q, local_vector(knowledge_text(item))), item) for item in items]
+    whole_score = cosine(q, local_vector(knowledge_text(item)))
+    field_scores = [
+        2.2 * cosine(q, local_vector(item.title)),
+        1.7 * cosine(q, local_vector(item.context)),
+        1.0 * cosine(q, local_vector(item.action)),
+        0.9 * cosine(q, local_vector(item.caution)),
+    ]
+
+    q_terms = keywords(query)
+    field_terms = [
+        (normalize(item.title), 0.28),
+        (normalize(item.context), 0.18),
+        (normalize(item.action), 0.08),
+        (normalize(item.caution), 0.06),
+    ]
+    keyword_bonus = sum(weight for term in q_terms for field, weight in field_terms if term in field)
+    exact_bonus = 0.35 if normalize(query) and normalize(query) in normalize(knowledge_text(item)) else 0.0
+    return whole_score * 0.7 + max(field_scores, default=0.0) + keyword_bonus + exact_bonus
+
+
+def local_search(query, items, limit=3):
+    scored = [(lexical_score(query, item), item) for item in items]
     return [result for result in sorted(scored, key=lambda x: x[0], reverse=True) if result[0] >= LOCAL_MIN_RELEVANCE_SCORE][:limit]
 
 
@@ -85,7 +120,10 @@ def semantic_search(query, items, limit=3):
             def dense_cos(raw):
                 v = json.loads(raw)
                 return sum(x*y for x, y in zip(q, v)) / (math.sqrt(sum(x*x for x in q))*math.sqrt(sum(y*y for y in v)))
-            scored = [(dense_cos(item.embedding), item) for item in items]
+            scored = [
+                (dense_cos(item.embedding) * 0.65 + lexical_score(query, item) * 0.75, item)
+                for item in items
+            ]
             return [result for result in sorted(scored, key=lambda x: x[0], reverse=True) if result[0] >= SEMANTIC_MIN_RELEVANCE_SCORE][:limit]
         except Exception:
             logger.exception("OpenAI semantic search failed; falling back to local search.")

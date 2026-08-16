@@ -1,7 +1,10 @@
+import base64
 import html
 import hmac
 import logging
+import mimetypes
 import os
+from urllib.parse import quote
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +19,8 @@ from styles import CSS
 APP_NAME = "SPOTV Tech Copilot"
 APP_SUBTITLE = "AI 기반 방송기술 지식 · 인수인계 지원 시스템"
 PROTECTED_PAGES = {"기술 지식 관리", "시스템 정보"}
+NAV_OPTIONS = ["AI 질문", "기술 지식 관리", "시스템 정보"]
+NAV_KEY = "main_navigation_v3"
 
 load_dotenv()
 logging.basicConfig(
@@ -83,12 +88,23 @@ def require_admin_access():
     return False
 
 
+def image_data_uri(path):
+    mime_type = mimetypes.guess_type(path.name)[0] or "image/svg+xml"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
+
+
 def sidebar_brand():
     asset_dir = Path(__file__).with_name("assets")
     logo = next((path for name in ["sidebar_logo.svg", "sidebar_logo.png", "sidebar_logo.jpg", "sidebar_logo.jpeg", "sidebar_logo.webp"] if (path := asset_dir / name).exists()), None)
+    home_href = f"?page={quote(NAV_OPTIONS[0])}"
     if logo:
-        st.image(str(logo), use_container_width=True)
-    st.markdown(f"### {APP_NAME}")
+        st.markdown(
+            f'<a class="sidebar-logo-link" href="{home_href}" target="_self" title="메인 화면으로 이동">'
+            f'<img src="{image_data_uri(logo)}" alt="{safe(APP_NAME)}"></a>',
+            unsafe_allow_html=True,
+        )
+    st.markdown(f'<a class="sidebar-brand-link" href="{home_href}" target="_self">{safe(APP_NAME)}</a>', unsafe_allow_html=True)
     st.caption(APP_SUBTITLE)
 
 
@@ -237,15 +253,27 @@ API 키와 비밀번호는 환경변수 또는 Secret Manager에서만 읽으며
 require_user_access()
 db.init_db()
 
+query_page = st.query_params.get("page")
+if isinstance(query_page, list):
+    query_page = query_page[0] if query_page else None
+if query_page in NAV_OPTIONS:
+    st.session_state[NAV_KEY] = query_page
+
+
+def sync_navigation_query():
+    st.query_params["page"] = st.session_state[NAV_KEY]
+
+
 with st.sidebar:
     sidebar_brand()
     if GOOGLE_LOGIN_ENABLED and st.user.is_logged_in:
         st.caption(f"👤 {getattr(st.user, 'email', '')}")
     page = st.radio(
         "메뉴",
-        ["AI 질문", "기술 지식 관리", "시스템 정보"],
-        key="main_navigation_v3",
+        NAV_OPTIONS,
+        key=NAV_KEY,
         label_visibility="collapsed",
+        on_change=sync_navigation_query,
     )
     if st.session_state.get("admin_authenticated") and st.button("관리자 로그아웃"):
         st.session_state.admin_authenticated = False

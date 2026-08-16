@@ -3,6 +3,7 @@ CSS = r"""
 :root{--bg:#f4f8fc;--panel:#ffffff;--panel2:#eef5fa;--line:#d8e4ec;--text:#142633;--muted:#647b8b;--accent:#087f8c;--accent2:#0b6571;--warn:#a86200}
 .stApp{background:radial-gradient(circle at 58% -15%,#e5f6f7 0,#f4f8fc 43%,#eef4f8 100%);color:var(--text)}
 [data-testid="stSidebar"]{background:#ffffff;border-right:1px solid var(--line);box-shadow:8px 0 28px rgba(31,65,82,.05)}
+.sidebar-logo-link{display:block;margin:0 auto .7rem}.sidebar-logo-link img{display:block;width:100%;height:auto}.sidebar-brand-link{display:block;color:var(--text)!important;text-decoration:none!important;font-size:1.17rem;font-weight:800;margin:.2rem 0}
 [data-testid="stSidebar"] [data-testid="stImage"]{margin:0 auto .7rem}
 [data-testid="stSidebar"] [data-testid="stRadio"] label{padding:.62rem .7rem;border-radius:10px;margin:.12rem 0}
 [data-testid="stSidebar"] [data-testid="stRadio"] label p{font-size:1.08rem!important;font-weight:650!important;color:#2b4453!important}

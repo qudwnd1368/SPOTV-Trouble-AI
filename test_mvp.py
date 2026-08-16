@@ -1,4 +1,5 @@
 import database as db
+from models import KnowledgeItem
 from search import semantic_search
 
 
@@ -25,6 +26,37 @@ def test_required_knowledge_queries(tmp_path):
 def test_unrelated_question_returns_no_matches(tmp_path):
     items, _ = seeded(tmp_path)
     assert semantic_search("오늘 점심 메뉴 추천해줘", items) == []
+
+
+def test_equipment_title_match_ranks_first():
+    items = [
+        KnowledgeItem(
+            id=1,
+            title="EVS XT-2 아날로그 오디오 입력 및 출력 불량",
+            context="아날로그 오디오 입력 및 출력 불량",
+            action="오디오 코덱보드 구매 후 정상동작 확인",
+            caution="오디오 코덱보드 불량",
+        ),
+        KnowledgeItem(
+            id=2,
+            title="오디오콘솔 페이더 올려도 소리가 안나옴",
+            context="오디오콘솔 페이더 올려도 소리가 안나옴",
+            action="AUX로 되어있거나 17-32 등 다른 레이어로 페이지가 이동되어있었음",
+            caution="타이틀 들어가기전 반드시 레이어와 FADER/AUX 선택 확인",
+        ),
+        KnowledgeItem(
+            id=3,
+            title="YAMAHA CL3 페이더를 내려도 소리가 송출되고 9-16번 페이더가 덜덜거림",
+            context="페이더를 내려도 소리가 송출되고 9-16번 페이더가 덜덜거림",
+            action="9-16번 페이더 교체",
+            caution="페이더 모터 불량",
+        ),
+    ]
+    results = semantic_search("오디오콘솔 소리안나와", items)
+    assert [item.title for _, item in results][:2] == [
+        "오디오콘솔 페이더 올려도 소리가 안나옴",
+        "EVS XT-2 아날로그 오디오 입력 및 출력 불량",
+    ]
 
 
 def test_knowledge_crud(tmp_path):
