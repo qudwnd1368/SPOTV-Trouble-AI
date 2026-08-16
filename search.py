@@ -9,6 +9,11 @@ from collections import Counter
 logger = logging.getLogger(__name__)
 LOCAL_MIN_RELEVANCE_SCORE = float(os.getenv("LOCAL_MIN_RELEVANCE_SCORE", os.getenv("MIN_RELEVANCE_SCORE", "0.08")))
 SEMANTIC_MIN_RELEVANCE_SCORE = float(os.getenv("SEMANTIC_MIN_RELEVANCE_SCORE", "0.35"))
+EVIDENCE_STOPWORDS = {
+    "어떻게", "어케", "방법", "설정", "설정해", "설정법", "알려줘", "알려주세요",
+    "하는법", "하는방법", "사용법", "해줘", "해주세요", "뭐야", "무엇", "질문",
+    "입력", "출력", "불량", "영상", "오디오", "신호",
+}
 
 ALIASES = {
     "안먹어": "반응하지않음", "안 먹어": "반응하지않음", "안돼": "불량",
@@ -58,6 +63,15 @@ def keywords(text):
     }
 
 
+def evidence_keywords(text):
+    return {term for term in keywords(text) if term not in EVIDENCE_STOPWORDS}
+
+
+def has_direct_evidence(query, item):
+    item_text = normalize(knowledge_text(item))
+    return any(term in item_text for term in evidence_keywords(query))
+
+
 def lexical_score(query, item):
     q = local_vector(query)
     whole_score = cosine(q, local_vector(knowledge_text(item)))
@@ -81,7 +95,8 @@ def lexical_score(query, item):
 
 
 def local_search(query, items, limit=3):
-    scored = [(lexical_score(query, item), item) for item in items]
+    candidates = [item for item in items if has_direct_evidence(query, item)]
+    scored = [(lexical_score(query, item), item) for item in candidates]
     return [result for result in sorted(scored, key=lambda x: x[0], reverse=True) if result[0] >= LOCAL_MIN_RELEVANCE_SCORE][:limit]
 
 
@@ -117,12 +132,15 @@ def semantic_search(query, items, limit=3):
     if client and items and all(item.embedding for item in items):
         try:
             q = client.embeddings.create(model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"), input=query).data[0].embedding
+            candidates = [item for item in items if has_direct_evidence(query, item)]
+            if not candidates:
+                return []
             def dense_cos(raw):
                 v = json.loads(raw)
                 return sum(x*y for x, y in zip(q, v)) / (math.sqrt(sum(x*x for x in q))*math.sqrt(sum(y*y for y in v)))
             scored = [
                 (dense_cos(item.embedding) * 0.65 + lexical_score(query, item) * 0.75, item)
-                for item in items
+                for item in candidates
             ]
             return [result for result in sorted(scored, key=lambda x: x[0], reverse=True) if result[0] >= SEMANTIC_MIN_RELEVANCE_SCORE][:limit]
         except Exception:

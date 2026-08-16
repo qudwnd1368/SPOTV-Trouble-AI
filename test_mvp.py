@@ -29,6 +29,11 @@ def test_unrelated_question_returns_no_matches(tmp_path):
     assert semantic_search("오늘 점심 메뉴 추천해줘", items) == []
 
 
+def test_unknown_broadcast_equipment_question_returns_no_matches(tmp_path):
+    items, _ = seeded(tmp_path)
+    assert semantic_search("mvs3000 스위처 pip 어떻게 설정해?", items) == []
+
+
 def test_general_ai_answer_requires_api_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     answer = ai_service.answer_general_question("mvs3000 스위처 pip 어떻게 설정해?")
@@ -60,10 +65,7 @@ def test_equipment_title_match_ranks_first():
         ),
     ]
     results = semantic_search("오디오콘솔 소리안나와", items)
-    assert [item.title for _, item in results][:2] == [
-        "오디오콘솔 페이더 올려도 소리가 안나옴",
-        "EVS XT-2 아날로그 오디오 입력 및 출력 불량",
-    ]
+    assert [item.title for _, item in results] == ["오디오콘솔 페이더 올려도 소리가 안나옴"]
 
 
 def test_knowledge_crud(tmp_path):
