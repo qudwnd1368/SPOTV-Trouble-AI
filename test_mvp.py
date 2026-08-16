@@ -1,3 +1,4 @@
+import ai_service
 import database as db
 from models import KnowledgeItem
 from search import semantic_search
@@ -26,6 +27,12 @@ def test_required_knowledge_queries(tmp_path):
 def test_unrelated_question_returns_no_matches(tmp_path):
     items, _ = seeded(tmp_path)
     assert semantic_search("오늘 점심 메뉴 추천해줘", items) == []
+
+
+def test_general_ai_answer_requires_api_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    answer = ai_service.answer_general_question("mvs3000 스위처 pip 어떻게 설정해?")
+    assert "OPENAI_API_KEY" in answer
 
 
 def test_equipment_title_match_ranks_first():

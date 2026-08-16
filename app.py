@@ -12,7 +12,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 import storage as db
-from ai_service import DISCLAIMER, answer_intro
+from ai_service import DISCLAIMER, answer_general_question, answer_intro
 from search import create_knowledge_embedding, relevance_label, semantic_search
 from styles import CSS
 
@@ -173,6 +173,9 @@ def render_search_page():
                 st.markdown("## 관련 기술 지식")
                 for rank, (score, item) in enumerate(results):
                     knowledge_card(item, score, rank)
+            else:
+                with st.spinner("일반 AI 답변을 생성하는 중입니다."):
+                    st.markdown(answer_general_question(query))
             st.markdown(f'<div class="notice"><b>주의사항</b><br>{safe(DISCLAIMER)}</div>', unsafe_allow_html=True)
 
     render_recent(items)
