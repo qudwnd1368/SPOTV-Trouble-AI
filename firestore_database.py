@@ -113,7 +113,11 @@ def update_knowledge_item(item_id, data, embedding=None):
     current = reference.get()
     raw = current.to_dict() or {}
     created_at = raw.get("created_at") if current.exists else None
-    reference.set(_clean({**raw, **data}, embedding, created_at))
+    incoming = dict(data)
+    if "caution" in incoming:
+        incoming["cause"] = ""
+        incoming["notes"] = incoming["caution"]
+    reference.set(_clean({**raw, **incoming}, embedding, created_at))
 
 
 def delete_knowledge_item(item_id):

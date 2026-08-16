@@ -97,9 +97,11 @@ def test_knowledge_crud(tmp_path):
     assert item.title == data["title"]
     assert item.images == data["images"]
     data["context"] = "인터컴 마이크 레벨이 작거나 노이즈가 섞이는 상황."
+    data["caution"] = ""
     db.update_knowledge_item(item.id, data, "[0, 1]", path)
     updated = db.list_knowledge_items(path)[0]
     assert updated.context == data["context"]
+    assert updated.caution == ""
     assert updated.embedding == "[0, 1]"
     assert updated.images == data["images"]
     db.delete_knowledge_item(item.id, path)
@@ -123,3 +125,11 @@ def test_legacy_incident_rows_are_mapped_to_knowledge(tmp_path):
     assert item.context == "기존 증상"
     assert item.action == "기존 조치"
     assert "기존 원인" in item.caution
+
+    db.update_knowledge_item(item.id, {
+        "title": item.title,
+        "context": item.context,
+        "action": item.action,
+        "caution": "",
+    }, None, path)
+    assert db.list_knowledge_items(path)[0].caution == ""

@@ -120,9 +120,9 @@ def knowledge_card(item, score=None, rank=0):
 
 
 def knowledge_fields(prefix, item=None):
-    title = st.text_input("제목", value=item.title if item else "", placeholder="예: vMix VCR 재생 멈춤", key=f"{prefix}_title")
-    context = st.text_area("상황", value=item.context if item else "", placeholder="어떤 상황에서 문제가 발생했거나 작업이 필요한지 적어주세요.", key=f"{prefix}_context")
-    action = st.text_area("조치", value=item.action if item else "", placeholder="실제로 해결했거나 작업했던 방법을 적어주세요.", key=f"{prefix}_action")
+    title = st.text_input("제목 :red[필수입력]", value=item.title if item else "", placeholder="예: vMix VCR 재생 멈춤", key=f"{prefix}_title")
+    context = st.text_area("상황 :red[필수입력]", value=item.context if item else "", placeholder="어떤 상황에서 문제가 발생했거나 작업이 필요한지 적어주세요.", key=f"{prefix}_context")
+    action = st.text_area("조치 :red[필수입력]", value=item.action if item else "", placeholder="실제로 해결했거나 작업했던 방법을 적어주세요.", key=f"{prefix}_action")
     caution = st.text_area("주의사항", value=item.caution if item else "", placeholder="다시 발생했을 때 반드시 알아야 할 내용을 적어주세요.", key=f"{prefix}_caution")
     uploads = st.file_uploader(
         "사진 첨부 (선택, 최대 2장)",
@@ -147,7 +147,7 @@ def knowledge_fields(prefix, item=None):
 
 
 def valid_knowledge(data):
-    return all(data[key].strip() for key in ["title", "context", "action", "caution"])
+    return all(data[key].strip() for key in ["title", "context", "action"])
 
 
 def save_embedding(data):
@@ -193,11 +193,9 @@ def update_knowledge(item, data, uploads, removed_paths):
     image_storage.delete_images(removed)
 
 
-def render_knowledge_images(item, key):
+def render_knowledge_images(item):
     images = list(getattr(item, "images", []) or [])
     if not images:
-        return
-    if not st.toggle(f"첨부 사진 보기 ({len(images)}장)", key=f"show_images_{key}"):
         return
     columns = st.columns(len(images))
     for column, image in zip(columns, images):
@@ -219,7 +217,7 @@ def render_recent(items):
             st.markdown(f"**상황**  \n{item.context}")
             st.markdown(f"**조치**  \n{item.action}")
             st.markdown(f"**주의사항**  \n{item.caution}")
-            render_knowledge_images(item, f"recent_{item.id}")
+            render_knowledge_images(item)
 
 
 def render_search_page():
@@ -272,8 +270,9 @@ def render_search_page():
             if results:
                 st.markdown("## 관련 기술 지식")
                 for rank, (score, item) in enumerate(results):
-                    knowledge_card(item, score, rank)
-                    render_knowledge_images(item, f"search_{item.id}")
+                    with st.expander(item.title):
+                        knowledge_card(item, score, rank)
+                        render_knowledge_images(item)
         else:
             st.markdown(response.get("text") or "")
             if response.get("model"):
@@ -293,7 +292,7 @@ def render_knowledge_management():
             submitted = st.form_submit_button("등록", type="primary")
             if submitted:
                 if not valid_knowledge(data):
-                    st.error("제목, 상황, 조치, 주의사항을 모두 입력해 주세요.")
+                    st.error("제목, 상황, 조치를 모두 입력해 주세요.")
                 else:
                     try:
                         add_knowledge(data, uploads)
@@ -324,14 +323,14 @@ def render_knowledge_management():
             <div><b>조치</b><br>{safe(short(item.action, 120))}</div>
             <div><b>주의사항</b><br>{safe(short(item.caution, 120))}</div>
             </div>""", unsafe_allow_html=True)
-            render_knowledge_images(item, f"manage_{item.id}")
+            render_knowledge_images(item)
             st.markdown("#### 전체 내용 및 수정")
             with st.form(f"edit_{item.id}"):
                 data, uploads, removed_paths = knowledge_fields(f"edit_{item.id}", item)
                 save = st.form_submit_button("수정 저장")
                 if save:
                     if not valid_knowledge(data):
-                        st.error("제목, 상황, 조치, 주의사항을 모두 입력해 주세요.")
+                        st.error("제목, 상황, 조치를 모두 입력해 주세요.")
                     else:
                         try:
                             update_knowledge(item, data, uploads, removed_paths)
@@ -357,7 +356,7 @@ def render_system_info():
 방송기술 업무 중 발생하는 문제 해결 경험과 작업 노하우를 간단히 축적하고, 필요할 때 AI에게 질문하여 과거 인수인계 내용을 즉시 찾아보는 시스템입니다.
 
 **데이터 구조**<br>
-사용자에게 보이는 기술 지식은 `제목`, `상황`, `조치`, `주의사항` 네 가지 핵심 항목과 선택형 첨부 사진 최대 2장으로 구성됩니다.
+사용자에게 보이는 기술 지식은 필수 항목인 `제목`, `상황`, `조치`와 선택 항목인 `주의사항`, 첨부 사진 최대 2장으로 구성됩니다.
 
 **검색 모드**<br>
 OpenAI API 키와 임베딩이 있으면 OpenAI 의미 검색을 사용하며, 그렇지 않으면 개인정보를 외부로 보내지 않는 로컬 유사도 검색으로 자동 전환합니다.

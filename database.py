@@ -140,7 +140,11 @@ def add_knowledge_item(data, embedding=None, db_path=DB_PATH):
 def update_knowledge_item(item_id: int, data, embedding=None, db_path=DB_PATH):
     with connect(db_path) as con:
         current = con.execute("SELECT * FROM incidents WHERE id=?", (item_id,)).fetchone()
-        item = _normalize_data({**(dict(current) if current else {}), **data})
+        incoming = dict(data)
+        if "caution" in incoming:
+            incoming["cause"] = ""
+            incoming["notes"] = incoming["caution"]
+        item = _normalize_data({**(dict(current) if current else {}), **incoming})
         con.execute("""UPDATE incidents SET equipment=?, symptom=?, cause=?, action=?, notes=?,
             title=?, context=?, caution=?, images=?, embedding=?, updated_at=CURRENT_TIMESTAMP WHERE id=?""", (
             item["equipment"], item["symptom"], item["cause"], item["action"], item["notes"],
