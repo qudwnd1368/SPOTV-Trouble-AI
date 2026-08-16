@@ -105,7 +105,7 @@ def sidebar_brand():
             unsafe_allow_html=True,
         )
     st.markdown(f'<a class="sidebar-brand-link" href="{home_href}" target="_self">{safe(APP_NAME)}</a>', unsafe_allow_html=True)
-    st.caption(APP_SUBTITLE)
+    st.markdown(f'<div class="sidebar-subtitle">{safe(APP_SUBTITLE)}</div>', unsafe_allow_html=True)
 
 
 def knowledge_card(item, score=None, rank=0):
